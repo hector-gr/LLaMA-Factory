@@ -1,0 +1,15 @@
+### Note: DO NOT use quantized model or quantization_bit when merging lora adapters
+
+### model
+# model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
+model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
+# adapter_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/mc_question_perception_test/3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens_loraRank16/checkpoint-600
+adapter_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/mc_question_perception_test/3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens_loraRank16/checkpoint-600
+template: qwen2_vl
+finetuning_type: lora
+
+### export
+export_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/models/qwen2_vl-7b_lora_sft/mc_question_perception_test/3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens_loraRank16/checkpoint-600
+export_size: 2 # each shard will be at most 2GB in size
+export_device: cpu
+export_legacy_format: false
