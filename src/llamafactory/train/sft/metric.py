@@ -17,7 +17,8 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional
+import re
+from typing import TYPE_CHECKING, Dict, Optional, Any, Tuple, List
 
 import numpy as np
 import torch
@@ -137,3 +138,140 @@ class ComputeSimilarity:
 
         if compute_result:
             return self._dump()
+        
+
+@dataclass
+class ComputeIoU:
+    """
+    A callable class that computes mIoU and R1@{0.3,0.5,0.7} over text intervals extracted
+    from decoded predictions and labels. It supports batch evaluation.
+
+    On each call:
+    - If compute_result=False, just accumulate partial results.
+    - If compute_result=True, return the final aggregated results and reset internal state.
+
+    Assumes access to `self.tokenizer` for decoding.
+    """
+
+    tokenizer: Any  # The tokenizer must be provided when initializing this class.
+
+    def __post_init__(self):
+        self._dump()  # Initialize/reset score dictionary at the start
+
+    def _dump(self) -> Optional[Dict[str, float]]:
+        """
+        Returns the aggregated results if available, then resets the accumulators.
+        If no data is accumulated, returns None.
+        """
+        result = None
+        if hasattr(self, "score_dict"):
+            # Compute final metrics
+            num_examples = self.score_dict["num_examples"]
+            if num_examples > 0:
+                mIoU = float(np.mean(self.score_dict["ious"])) if len(self.score_dict["ious"]) > 0 else 0.0
+                r1_0_3 = self.score_dict["hits@0.3"] / num_examples
+                r1_0_5 = self.score_dict["hits@0.5"] / num_examples
+                r1_0_7 = self.score_dict["hits@0.7"] / num_examples
+                result = {
+                    "mIoU": mIoU,
+                    "R1@0.3": r1_0_3,
+                    "R1@0.5": r1_0_5,
+                    "R1@0.7": r1_0_7
+                }
+
+        # Reset the dictionaries for the next evaluation
+        self.score_dict = {
+            "ious": [],
+            "hits@0.3": 0,
+            "hits@0.5": 0,
+            "hits@0.7": 0,
+            "num_examples": 0
+        }
+        return result
+
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        """
+        Accumulate or finalize IoU and R1 metrics.
+
+        Args:
+            eval_preds (EvalPrediction): Contains `predictions` and `label_ids` arrays.
+            compute_result (bool): If False, accumulate batch results.
+                                   If True, return final results and reset state.
+
+        Returns:
+            If compute_result=True: a dictionary with {"mIoU", "R1@0.3", "R1@0.5", "R1@0.7"}.
+            If compute_result=False: returns None (partial accumulation).
+        """
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+
+        # If predictions are logits (3D: batch_size, seq_len, vocab_size), convert to IDs via argmax
+        if preds.ndim == 3:
+            pred_ids = np.argmax(preds, axis=-1)
+        else:
+            pred_ids = preds
+
+        pred_texts = self.tokenizer.batch_decode(pred_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        labels_filtered = np.where(labels == IGNORE_INDEX, self.tokenizer.pad_token_id, labels)
+        label_texts = self.tokenizer.batch_decode(labels_filtered, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+
+        # Regex to extract intervals: "From frames X to Y"
+        pattern = re.compile(r"From frames (\d+)\s*to\s*(\d+)", re.IGNORECASE)
+
+        def extract_windows(text: str) -> List[Tuple[int, int]]:
+            intervals = []
+            for match in pattern.finditer(text):
+                start = int(match.group(1))
+                end = int(match.group(2))
+                if start <= end:
+                    intervals.append((start, end))
+                else:
+                    intervals.append((end, start))
+            return intervals
+
+        def iou(interval_a: Tuple[int, int], interval_b: Tuple[int, int]) -> float:
+            a_start, a_end = interval_a
+            b_start, b_end = interval_b
+            intersection = max(0, min(a_end, b_end) - max(a_start, b_start))
+            a_len = a_end - a_start
+            b_len = b_end - b_start
+            union = a_len + b_len - intersection
+            return intersection / union if union > 0 else 0.0
+
+        # Ensure score_dict is initialized if not
+        if not hasattr(self, "score_dict"):
+            self._dump()
+
+        # Accumulate results for this batch
+        for pred_text, label_text in zip(pred_texts, label_texts):
+            pred_windows = extract_windows(pred_text)
+            label_windows = extract_windows(label_text)
+
+            self.score_dict["num_examples"] += 1
+            if len(pred_windows) == 0 or len(label_windows) == 0:
+                # No intervals means IoU = 0
+                if len(label_windows) == 0:
+                    print(f"WARNING: no intervals found in ground truth {label_text=} ")
+                self.score_dict["ious"].append(0.0)
+                continue
+
+            # Compute max IoU for this example
+            example_iou_scores = [
+                iou(p_win, l_win) for p_win in pred_windows for l_win in label_windows
+            ]
+            max_iou = max(example_iou_scores) if example_iou_scores else 0.0
+            self.score_dict["ious"].append(max_iou)
+
+            # Update hits for thresholds
+            if max_iou >= 0.3:
+                self.score_dict["hits@0.3"] += 1
+            if max_iou >= 0.5:
+                self.score_dict["hits@0.5"] += 1
+            if max_iou >= 0.7:
+                self.score_dict["hits@0.7"] += 1
+
+        # If not final result, just return None
+        if not compute_result:
+            return None
+
+        # On final call, return aggregated results and reset
+        return self._dump()

@@ -1,0 +1,108 @@
+### model
+model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
+# allow_extra_keys ?
+# model: ValueError: Some keys are not used by the HfArgumentParser: ['model']
+#   fps: 2.0
+#   max_tokens: null
+#   min_tokens: 78400 # 100 * 28 * 28
+#   total_pixels: 12845056 # 16384 * 28 * 28
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+# deepspeed: examples/deepspeed/ds_z3_config.json
+resume_from_checkpoint: false
+# more in https://github.com/hiyouga/LLaMA-Factory/blob/707ff5a3703ead7b1d374d928f92ed8a128573f0/src/llamafactory/hparams/finetuning_args.py
+
+### dataset
+dataset: action_localisation_train_factory_llama_vtimellm # mllm_demo,identity  # video: mllm_video_demo
+# dataset: action_localisation_train_factory_llama_vtimellm_dummy_16 # mllm_demo,identity  # video: mllm_video_demo
+eval_dataset: challenge_action_localisation_valid_factory_llama_vtimellm_100_samples
+# eval_dataset: challenge_action_localisation_valid_factory_llama_vtimellm_100_samples_dummy_16
+# dataset_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest if given, dataset_info.json must also be located here
+# image_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/videos # i guess if we didn;t pass full path
+template: qwen2_vl
+cutoff_len: 32768 #1024
+# max_samples: 1000  # default=None, For debugging purposes, truncate the number of examples for each dataset.
+overwrite_cache: true
+# with streaming, this seems to be ignored
+# i think, at least for this setup, these are global workers, not per gpu
+# still, 11 min ETA for ~2.3k samples tokenisation
+preprocessing_num_workers: 32 # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
+# streaming: true # Enable dataset streaming
+# These two really determine the number of samples processed
+preprocessing_batch_size: 16 # 2 # 1 # The number of examples in one group in pre-processing.
+buffer_size: 2 # maybe per gpu?
+# buffer_size: 64 # 2 batch_size_per_gpu * 4 gradient acc_steps * 4 gpus * 2x buffer # this determines how many times we call : appending data in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/.conda/envs/llamafactoryqwen/lib/python3.11/site-packages/torch/utils/data/_utils/fetch.py l 33
+
+# prefetch_factor: 1 # Some keys are not used by the HfArgumentParser: ['prefetch_factor']
+# packing: None # default=None, Packing examples together to speed up the preprocessing.
+#     neat_packing: bool = field(
+#     default=False,
+#     metadata={"help": "Enable sequence packing without cross-attention."},
+# )
+# tool_format: Optional[str] = field(
+#     default=None,
+#     metadata={"help": "Tool format to use for constructing function calling examples."},
+# )
+
+# image_resolution: 512 # Keeps the height or width of image below this resolution.
+# TODO: how to set min_pixels, total_pixels, ... ?
+# video_resolution: 1024 # 128 # Keeps the height or width of video below this resolution.
+video_fps: 2.0 # 2.0 # The frames to sample per second for video inputs.
+video_maxlen: 768 # The maximum number of sampled frames for video inputs.
+use_qwen2vl_processor: true
+# video_total_pixels: 12845056 # 16384 * 28 * 28
+
+# ### output
+# logging_steps: 5 # 10
+# save_steps: 20 # 1000 # 500 # lower for dev
+plot_loss: true
+# overwrite_output_dir: true
+
+### train
+flash_attn: fa2
+#  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
+per_device_train_batch_size: 1 # 1
+gradient_accumulation_steps: 4 # 8
+# gradient_accumulation_steps: 1 # 8
+learning_rate: 1.0e-4
+# gradient steps? so to get 3 epochs,
+# 1 per_device_train_batch_size * 4 gradient_accumulation_steps * 8 num_devices = 32 samples per step
+# 2135 samples per epoch / 32 samples per step * 3 epochs wanted = 200
+
+logging_steps: 5 # 10
+save_steps: 20 # 1000 # 500 # lower for dev
+max_steps: 200
+num_train_epochs: 3.0
+# without split_batches, it fails to concatenate sequences of different lengths
+# split_batches: true # ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
+lr_scheduler_type: cosine
+warmup_ratio: 0.1 
+bf16: true
+ddp_timeout: 9000 # 180000000
+# https://huggingface.co/docs/accelerate/v0.11.0/en/deepspeed#:~:text=DeepSpeed%20ZeRO%2D2%20is%20primarily,possible%20on%20a%20single%20GPU.
+# deepspeed: examples/deepspeed/ds_z0_config.json
+
+### eval
+val_size: 0 # 0.01 # Streaming mode should have an integer val size. # If you use a value different than 0, you get: `Cannot specify `val_size` if `eval_dataset` is not None.Cannot specify `val_size` if `eval_dataset` is not None.`
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 20 # 500 # lower for dev
+#
+# duplicate of eval_dataset + dataset_dir?
+# task_dir: evaluation # not used by the HfArgumentParser #"Path to the folder containing the evaluation datasets.
+# save_dir
+seed: 42
+# task: name of the evaluation task
+
+report_to: wandb
+# run_name: debug # optional
+# output_dir: output/qwen2_vl-7b/perception_test/action_localisation_vtimellm_debug # must be given
+
+run_name: 3epoch_lr1e-4_bs1_ga4_dsz3_warmup0.1
+output_dir: output/qwen2_vl-7b/perception_test/action_localisation_vtimellm_3epoch_lr1e-4_bs1_ga4_dsz3_warmup0.1
+
+ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.

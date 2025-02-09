@@ -69,8 +69,14 @@ def patch_processor(
     setattr(processor, "patch_size", get_patch_size(config))
     setattr(processor, "video_resolution", model_args.video_resolution)
     setattr(processor, "video_fps", model_args.video_fps)
-    setattr(processor, "video_maxlen", model_args.video_maxlen)
+    setattr(processor, "video_maxlen", model_args.video_maxlen) # upper bound to number of frames
+    setattr(processor, "video_nframes", model_args.video_nframes) # number of frames for Qwen2VL
     setattr(processor, "vision_feature_select_strategy", get_vision_feature_select_strategy(config))
+    setattr(processor, "use_qwen2vl_processor", model_args.use_qwen2vl_processor)
+    setattr(processor, "total_pixels", model_args.total_pixels) # total pixels across all frames in video
+    setattr(processor, "max_pixels", model_args.max_pixels)
+    setattr(processor, "min_pixels", model_args.min_pixels)
+    print(f"{model_args.max_pixels=}")
 
 
 def patch_config(

@@ -96,8 +96,19 @@ def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
             logger.warning_rank0("New tokens have been added, changed `resize_vocab` to True.")
 
     patch_tokenizer(tokenizer)
+    # qwen2vl hf processor only uses fps, max_pixels and min_pixels, see https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen2_vl/image_processing_qwen2_vl.py#L130
+    qwen2vl_hf_processor = {
+        "fps": "video_fps",
+        "max_pixels": "max_pixels",
+        "min_pixels": "min_pixels",
+    }
+    qwen2vl_kwargs = {k: getattr(model_args, v) for k, v in qwen2vl_hf_processor.items() if getattr(model_args, v) is not None}
+    print("Initialising Qwen2VL processor with kwargs:", qwen2vl_kwargs)
+
     try:
-        processor = AutoProcessor.from_pretrained(model_args.model_name_or_path, **init_kwargs)
+        processor = AutoProcessor.from_pretrained(
+            model_args.model_name_or_path, **init_kwargs, **qwen2vl_kwargs,
+        )
         patch_processor(processor, config, tokenizer, model_args)
     except Exception as e:
         logger.debug(f"Processor was not found: {e}.")

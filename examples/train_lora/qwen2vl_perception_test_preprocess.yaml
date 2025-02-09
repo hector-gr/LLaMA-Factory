@@ -1,0 +1,31 @@
+### model
+model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+
+### dataset
+# dataset: action_localisation_train_factory_llama_vtimellm_10_epochs
+dataset: challenge_action_localisation_valid_factory_llama_vtimellm_100_samples_tgr1.01_grouped
+# eval_dataset: challenge_action_localisation_valid_factory_llama_vtimellm_100_samples
+eval_dataset: challenge_action_localisation_valid_factory_llama_vtimellm_100_samples_tgr1.01_grouped
+template: qwen2_vl
+cutoff_len: 32768
+# max_samples: 1000
+overwrite_cache: false
+preprocessing_num_workers: 16
+# tokenized_path: saves/qwen2_vl-7b/dataset/sft
+use_qwen2vl_processor: true
+# following https://arxiv.org/abs/2409.13538
+# tokenized_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/TokenizedLLaMA-Factory/10_epochs_max_pixels_176400_nframes_60
+tokenized_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/TokenizedLLaMA-Factory/valid_10_epochs_max_pixels_176400_nframes_60
+max_pixels: 176400
+video_nframes: 60
+
+
+### output
+output_dir: saves/qwen2_vl-7b/lora/sft/preprocess
+overwrite_output_dir: false

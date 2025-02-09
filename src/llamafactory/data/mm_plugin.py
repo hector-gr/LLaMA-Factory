@@ -78,6 +78,7 @@ class BasePlugin:
         if max(image.width, image.height) > image_resolution:
             resize_factor = image_resolution / max(image.width, image.height)
             width, height = int(image.width * resize_factor), int(image.height * resize_factor)
+            print(f"In /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/mm_plugin.py _preprocess_image(), resizing image from {image.width}x{image.height} to {width}x{height}")
             image = image.resize((width, height), resample=Image.NEAREST)
 
         if image.mode != "RGB":
@@ -125,18 +126,50 @@ class BasePlugin:
         """
         results = []
         for video in videos:
-            container = av.open(video, "r")
-            video_stream = next(stream for stream in container.streams if stream.type == "video")
-            total_frames = video_stream.frames
-            sample_frames = self._get_video_sample_frames(video_stream, **kwargs)
-            sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(np.int32)
-            frames: List["ImageObject"] = []
-            container.seek(0)
-            for frame_idx, frame in enumerate(container.decode(video_stream)):
-                if frame_idx in sample_indices:
-                    frames.append(frame.to_image())
+            if kwargs.get("use_qwen2vl_processor", False):
+                from qwen_vl_utils import fetch_video
+                # if kwargs.get("image_resolution") is not None:
+                #     # logger.warning("For Qwen2VL, we use max_pixels to upper bound the tokens per frame. (n_tokens * (patchsize*patch_merge_kernel)**2), where patchsize is 14 and patch_merge_kernel is 2 by default. This will be reduced if total number of tokens goes above the value set by video_total_pixels")
+                #     print("WARNING: For Qwen2VL, we use max_pixels to upper bound the tokens per frame. (n_tokens * (patchsize*patch_merge_kernel)**2), where patchsize is 14 and patch_merge_kernel is 2 by default. This will be reduced if total number of tokens goes above the value set by video_total_pixels")
+                assert "total_pixels" in kwargs, "total_pixels must be set for Qwen2VL"
+                total_pixels = kwargs.get("total_pixels")
+                max_frames = kwargs.get("video_maxlen")
+                fps = kwargs.get("video_fps")
+                nframes = kwargs.get("video_nframes")
+                # if set, max_pixels overrides total_pixels
+                max_pixels, min_pixels = kwargs.get("max_pixels"), kwargs.get("min_pixels")
+                lf2qwen = {
+                    "total_pixels": "total_pixels",
+                    "max_pixels": "max_pixels",
+                    "min_pixels": "min_pixels",
+                    "video_maxlen": "max_frames",
+                    "video_fps": "fps",
+                    "video_nframes": "nframes",
+                }
+                assert all(k in kwargs for k in lf2qwen)
+                qwen_vutils_kwargs = {lf2qwen[k]: v for k, v in kwargs.items() 
+                        if (k in lf2qwen.keys() and v is not None)}
+                print("qwen_vutils_kwargs:", qwen_vutils_kwargs, "_regularize_videos kwargs:", kwargs)
+                assert (total_pixels and fps and max_frames) or (nframes and total_pixels) \
+                    or (max_pixels and nframes) or (max_pixels and fps and max_frames), \
+                    f"You need a method to set number of frames and per-frame pixels for Qwen2VL, " \
+                    f"however only {set(qwen_vutils_kwargs.keys())} are set."
+                qwen_vutils_kwargs["video"] = video
+                frames = fetch_video(qwen_vutils_kwargs)
+            else:
+                container = av.open(video, "r")
+                video_stream = next(stream for stream in container.streams if stream.type == "video")
+                total_frames = video_stream.frames
 
-            frames = self._regularize_images(frames, **kwargs)
+                sample_frames = self._get_video_sample_frames(video_stream, **kwargs)
+                sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(np.int32)
+                frames: List["ImageObject"] = []
+                container.seek(0)
+                for frame_idx, frame in enumerate(container.decode(video_stream)):
+                    if frame_idx in sample_indices:
+                        frames.append(frame.to_image())
+
+                frames = self._regularize_images(frames, **kwargs)
             results.append(frames)
 
         return results
@@ -172,9 +205,14 @@ class BasePlugin:
         if len(videos) != 0:
             videos = self._regularize_videos(
                 videos,
-                image_resolution=getattr(processor, "video_resolution", 128),
-                video_fps=getattr(processor, "video_fps", 1.0),
-                video_maxlen=getattr(processor, "video_maxlen", 64),
+                image_resolution=getattr(processor, "video_resolution", None), # 128),
+                video_fps=getattr(processor, "video_fps", None), # 1.0),
+                video_maxlen=getattr(processor, "video_maxlen", None), # 64),
+                use_qwen2vl_processor=getattr(processor, "use_qwen2vl_processor", False),
+                total_pixels=getattr(processor, "total_pixels", None), #16384 * 28 * 28),
+                video_nframes=getattr(processor, "video_nframes", None),
+                max_pixels=getattr(processor, "max_pixels", None),
+                min_pixels=getattr(processor, "min_pixels", None),
             )
             input_dict["videos"] = videos
 
@@ -362,6 +400,7 @@ class LlavaNextVideoPlugin(BasePlugin):
                 message["content"] = content.replace("{{image}}", self.image_token)
 
         if "pixel_values_videos" in mm_inputs:
+            raise NotImplementedError("Video processing using LLaVaNext not implemented for Qwen2VL.")
             pixel_values_video = to_numpy_array(mm_inputs.get("pixel_values_videos")[0])
             height, width = get_image_size(pixel_values_video[0])
             num_frames = pixel_values_video.shape[0]  # frame dim is always after batch dim
