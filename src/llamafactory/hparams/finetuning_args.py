@@ -433,6 +433,10 @@ class FinetuningArguments(
         default=False,
         metadata={"help": "Whether or not to compute the IoU and other window-level metrics for moment retrieval at evaluation."},
     )
+    compute_classification_accuracy: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to compute the classification accuracy at evaluation."},
+    )
     disable_shuffling: bool = field(
         default=False,
         metadata={"help": "Whether or not to disable the shuffling of the training set."},

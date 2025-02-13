@@ -191,6 +191,7 @@ def convert_sharegpt(
         prompt, response = [], []
 
     regularize_medias = partial(_regularize_medias, dataset_attr=dataset_attr, data_args=data_args)
+    # If you get an error here, you probably set up your dataset in dataset_info.json incorrectly! 
     output = {
         "_prompt": prompt,
         "_response": response,

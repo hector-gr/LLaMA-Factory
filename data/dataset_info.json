@@ -913,6 +913,48 @@
       "assistant_tag": "assistant"
     }
   },
+  "mc_question_perception_test_train": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/data/mc_question_perception_test/mc_question_train.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "videos": "videos"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_valid": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/data/mc_question_perception_test/mc_question_valid.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "videos": "videos"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_valid_dev_2_samples": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/data/mc_question_perception_test/mc_question_valid_dev_2_samples.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+       "videos": "videos"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
   "mc_question_perception_test_train_visual_sketchpad_correct_top1": {
     "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0correct_top1/conversations.json",
     "formatting": "sharegpt",
