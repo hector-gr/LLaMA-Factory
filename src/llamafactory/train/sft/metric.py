@@ -275,3 +275,88 @@ class ComputeIoU:
 
         # On final call, return aggregated results and reset
         return self._dump()
+
+
+@dataclass
+class ComputeClassificationAccuracy:
+    """
+    Computes accuracy for multiple choice classification tasks.
+    Supports both letter-based (A/B/C...) and text-based answer matching.
+    Supports batch evaluation metrics.
+    """
+
+    tokenizer: "PreTrainedTokenizer"
+
+    def _dump(self) -> Optional[Dict[str, float]]:
+        """Returns the accumulated metrics and resets the state."""
+        result = None
+        if hasattr(self, "score_dict"):
+            result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
+
+        self.score_dict = {
+            "accuracy": [],
+            "letter_match": [],
+            "text_match": []
+        }
+        return result
+
+    def __post_init__(self):
+        self._dump()
+
+    def _extract_answer(self, text: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extracts both the letter choice and answer text from a response.
+        Returns tuple of (letter_choice, answer_text).
+        """
+        # Match pattern like (A) or (B) answer text
+        letter_pattern = r'\(([A-Z])\)'
+        letter_match = re.search(letter_pattern, text)
+        letter_choice = letter_match.group(1) if letter_match else None
+
+        # Extract text after the letter choice
+        answer_text = None
+        if letter_match:
+            answer_text = text[letter_match.end():].strip()
+        
+        return letter_choice, answer_text
+
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        """
+        Computes accuracy by matching either letter choices or answer text.
+        
+        Args:
+            eval_preds: Contains predictions and label_ids
+            compute_result: If True, returns final metrics. If False, accumulates results.
+        """
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+
+        # Decode the predictions and labels
+        preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
+        labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
+
+        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        for pred, label in zip(decoded_preds, decoded_labels):
+            # Extract answers from both prediction and label
+            pred_letter, pred_text = self._extract_answer(pred)
+            label_letter, label_text = self._extract_answer(label)
+
+            # Compute letter match
+            letter_correct = int(bool(pred_letter and label_letter and pred_letter.upper() == label_letter.upper()))
+            self.score_dict["letter_match"].append(letter_correct)
+
+            # Compute text match (if both texts are available)
+            text_correct = 0
+            if pred_text and label_text:
+                # Normalize both texts (lowercase, remove extra whitespace)
+                pred_text = " ".join(pred_text.lower().split())
+                label_text = " ".join(label_text.lower().split())
+                text_correct = int(pred_text == label_text)
+            self.score_dict["text_match"].append(text_correct)
+
+            # Overall accuracy (correct if either letter or text matches)
+            self.score_dict["accuracy"].append(int(bool(letter_correct or text_correct)))
+
+        if compute_result:
+            return self._dump()

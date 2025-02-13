@@ -216,6 +216,7 @@ def convert_sharegpt(
 
     convert_images = partial(_convert_images, dataset_attr=dataset_attr, data_args=data_args)
     convert_videos = partial(_convert_videos, dataset_attr=dataset_attr, data_args=data_args)
+    # If you get an error here, you probably set up your dataset in dataset_info.json incorrectly!
     output = {
         "_prompt": prompt,
         "_response": response,
