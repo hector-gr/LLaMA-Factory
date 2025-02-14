@@ -12,11 +12,8 @@ resume_from_checkpoint: false
 batch_eval_metrics: true
 compute_classification_accuracy: true
 ### dataset
-# dataset: mc_question_perception_test_train # mllm_demo,identity  # video: mllm_video_demo
-# eval_dataset: mc_question_perception_test_valid_dev_2_samples
-dataset: mc_question_perception_test_valid_dev_2_samples # mllm_demo,identity  # video: mllm_video_demo
-eval_dataset: mc_question_perception_test_valid_dev_2_samples
-# tokenized_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/TokenizedLLaMA-Factory/50_epochs_fps_4_maxlen_768_total_pixels_12845056
+dataset: mc_question_perception_test_train
+eval_dataset: mc_question_perception_test_valid
 streaming: true
 accelerator_config:
   dispatch_batches: false
@@ -28,11 +25,7 @@ preprocessing_batch_size: 16 # 2 # 1 # The number of examples in one group in pr
 buffer_size: 2 # maybe per gpu?
 
 video_resolution: 100000000 # 128 # Keeps the height or width of video below this resolution.
-# video_fps: 4.0 # 2.0 # The frames to sample per second for video inputs.
 video_maxlen: 100000 # The maximum number of sampled frames for video inputs.
-# total_pixels: 12845056 # 16384 * 28 * 28
-# max_pixels: 78400 # 100 * 28 * 28
-# min_pixels: 62720 # 80*28*28
 max_pixels: 63504 # 81 * 28 * 28
 min_pixels: 62720 # 80 * 28 * 28
 video_fps: 2
@@ -51,7 +44,7 @@ flash_attn: fa2
 #  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
 per_device_train_batch_size: 1 # 1
 gradient_accumulation_steps: 2
-learning_rate: 1.0e-4
+learning_rate: 1.0e-4 
 
 max_steps: 462 # 7392 * 4 / 64 = 462
 num_train_epochs: 4
@@ -67,14 +60,11 @@ ddp_timeout: 9000 # 180000000
 val_size: 0 # 0.01 # Streaming mode should have an integer val size. # If you use a value different than 0, you get: `Cannot specify `val_size` if `eval_dataset` is not None.Cannot specify `val_size` if `eval_dataset` is not None.`
 per_device_eval_batch_size: 1
 eval_strategy: steps
-# eval_steps: 116 # 500 # lower for dev
-eval_steps: 1
+eval_steps: 116 # 500 # lower for dev
 seed: 42
 
 
 report_to: wandb
-# run_name: 4epoch_lr1e-4_constantLR_bs1_ga2_dsz3_warmup0.1_bs128_streaming
-# output_dir: output/qwen2_vl-7b/mc_question_perception_test/4epoch_lr1e-4_constantLR_bs1_ga2_dsz3_warmup0.1_bs128_streaming
-run_name: debug
-output_dir: output/debug
+run_name: 4epoch_lr1e-4_constantLR_bs1_ga2_dsz3_warmup0.1_bs128_streaming
+output_dir: output/qwen2_vl-7b/mc_question_perception_test/4epoch_lr1e-4_constantLR_bs1_ga2_dsz3_warmup0.1_bs128_streaming
 ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.
