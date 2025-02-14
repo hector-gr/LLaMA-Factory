@@ -343,7 +343,7 @@ class ComputeClassificationAccuracy:
             label_letter, label_text = self._extract_answer(label)
 
             # Compute letter match
-            letter_correct = int(bool(pred_letter and label_letter and pred_letter.upper() == label_letter.upper()))
+            letter_correct = int(bool(pred_letter.lower() == label_letter.lower())) if pred_letter and label_letter else 0
             self.score_dict["letter_match"].append(letter_correct)
 
             # Compute text match (if both texts are available)
