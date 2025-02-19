@@ -20,6 +20,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Dict, Optional
+import random
 
 import torch
 import transformers
@@ -348,3 +349,49 @@ class LogCallback(TrainerCallback):
                     remaining_time=self.remaining_time,
                 )
                 self.thread_pool.submit(self._write_log, args.output_dir, logs)
+
+
+# class DumpExamplesCallback(TrainerCallback):
+#     def __init__(self, tokenizer, dataset, n_examples=2):
+#         """
+#         Args:
+#             tokenizer: The tokenizer for decoding model outputs.
+#             dataset: The validation dataset (or a subset) from which to pull example inputs.
+#             n_examples: How many examples you want to dump each time on_evaluate is called.
+#         """
+#         self.tokenizer = tokenizer
+#         self.dataset = dataset
+#         self.n_examples = n_examples
+
+#     def on_evaluate(self, args, state, control, **kwargs):
+#         # Grab the current model from kwargs
+#         model = kwargs.get("model")
+
+#         # Process examples directly from the iterator
+#         for i, example in enumerate(self.dataset):
+#             if i >= self.n_examples:
+#                 break
+                
+#             # Convert input text or token IDs to model inputs
+#             input_ids = example["input_ids"]
+#             input_text = self.tokenizer.decode(input_ids, skip_special_tokens=True)
+
+#             # Generate predictions
+#             outputs = model.generate(
+#                 input_ids=self.tokenizer(input_text, return_tensors="pt").input_ids.to(model.device),
+#                 max_length=128,
+#                 num_beams=1
+#             )
+
+#             # Decode predictions
+#             decoded_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+#             # Print or log example input and output
+#             print(f"\nExample {i+1} / {self.n_examples}")
+#             print("Input:")
+#             print(input_text)
+#             print("\nModel Output:")
+#             print(decoded_output)
+#             print("-" * 40)
+
+#         return control
