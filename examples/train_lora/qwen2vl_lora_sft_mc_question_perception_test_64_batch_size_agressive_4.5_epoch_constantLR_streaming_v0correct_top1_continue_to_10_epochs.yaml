@@ -8,9 +8,11 @@ stage: sft
 do_train: true
 finetuning_type: lora
 lora_target: all
-deepspeed: examples/deepspeed/ds_z3_config.json
+deepspeed: examples/deepspeed/ds_z3_config.json # debugging
 # resume_from_checkpoint: true
+adapter_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/mc_question_perception_test/1epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming/checkpoint-332
 resume_from_checkpoint: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/mc_question_perception_test/1epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming/checkpoint-332
+ignore_data_skip: true # skips all the previous dataloading steps, so we can continue training from the last checkpoint but it does not get the same exact batch
 batch_eval_metrics: true
 # compute_iou: true
 
@@ -36,6 +38,8 @@ buffer_size: 2 # maybe per gpu?
 # min_pixels: 62720 # 80*28*28
 max_pixels: 63504 # 81 * 28 * 28
 min_pixels: 62720 # 80 * 28 * 28
+# max_pixels: 30000 # 81 * 28 * 28 # debugging
+# min_pixels: 15000 # 80 * 28 * 28 # debugging
 use_qwen2vl_processor: true
 image_resolution: 5000 # i think this is only an upper bound, so setting to ridiculously high
 
