@@ -30,10 +30,14 @@ def create_mllm_dataset(input_file, output_file=None):
         # Process each multiple choice question
         for question in data[video_id]['mc_question']:
             # Create conversation entry with A, B, C options
+            letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+            options_str = ""
+            for option, letter in zip(question['options'], letters):
+                options_str += f"({letter}) {option}\n"
             entry = {
                 "messages": [
                     {
-                        "content": f"<video>{question['question']}\nA. {question['options'][0]}\nB. {question['options'][1]}\nC. {question['options'][2]}",
+                        "content": f"<video>{question['question']}\n{options_str}",
                         "role": "user"
                     },
                     {

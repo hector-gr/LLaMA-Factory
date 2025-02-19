@@ -111,7 +111,8 @@ class BasePlugin:
         if (image.width * image.height) > image_resolution:
             resize_factor = math.sqrt(image_resolution / (image.width * image.height))
             width, height = int(image.width * resize_factor), int(image.height * resize_factor)
-            image = image.resize((width, height), resample=Image.Resampling.NEAREST)
+            # print(f"In /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/mm_plugin.py _preprocess_image(), resizing image from {image.width}x{image.height} to {width}x{height}")
+            image = image.resize((width, height), resample=Image.NEAREST)
 
         if image.mode != "RGB":
             image = image.convert("RGB")
@@ -181,7 +182,7 @@ class BasePlugin:
                 assert all(k in kwargs for k in lf2qwen)
                 qwen_vutils_kwargs = {lf2qwen[k]: v for k, v in kwargs.items() 
                         if (k in lf2qwen.keys() and v is not None)}
-                print("qwen_vutils_kwargs:", qwen_vutils_kwargs, "_regularize_videos kwargs:", kwargs)
+                # print("qwen_vutils_kwargs:", qwen_vutils_kwargs, "_regularize_videos kwargs:", kwargs)
                 assert (total_pixels and fps and max_frames) or (nframes and total_pixels) \
                     or (max_pixels and nframes) or (max_pixels and fps and max_frames), \
                     f"You need a method to set number of frames and per-frame pixels for Qwen2VL, " \

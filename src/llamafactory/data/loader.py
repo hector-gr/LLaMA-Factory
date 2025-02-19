@@ -209,15 +209,16 @@ def _get_preprocessed_dataset(
         **kwargs,
     )
 
-    if training_args.should_log:
-        try:
-            print("eval example:" if is_eval else "training example:")
-            print_function(next(iter(dataset)))
-        except StopIteration:
-            if stage == "pt":
-                raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
-            else:
-                raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
+    # TODO: is this operation that costly?
+    # if training_args.should_log:
+    #     try:
+    #         print("eval example:" if is_eval else "training example:")
+    #         print_function(next(iter(dataset)))
+    #     except StopIteration:
+    #         if stage == "pt":
+    #             raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
+    #         else:
+    #             raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
 
     return dataset
 

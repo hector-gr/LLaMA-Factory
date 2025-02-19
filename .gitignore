@@ -174,4 +174,6 @@ wandb/
 swanlog/
 generated_predictions.jsonl
 data/action_localisation_perception_test/
+data/mc_question_perception_test/*.json
+data/*.json
 models/

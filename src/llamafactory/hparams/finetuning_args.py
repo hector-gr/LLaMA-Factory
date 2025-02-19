@@ -208,6 +208,14 @@ class RLHFArguments:
         default="lora",
         metadata={"help": "The type of the reward model in PPO training. Lora model only supports lora training."},
     )
+    grpo_beta: float = field(
+        default=0.1,
+        metadata={"help": "The beta parameter for GRPO KL penalty."}
+    )
+    grpo_num_completions: int = field(
+        default=4,
+        metadata={"help": "Number of completions to generate per prompt in GRPO."}
+    )
 
 
 @dataclass
@@ -436,10 +444,6 @@ class FinetuningArguments(
     compute_classification_accuracy: bool = field(
         default=False,
         metadata={"help": "Whether or not to compute the classification accuracy at evaluation."},
-    )
-    disable_shuffling: bool = field(
-        default=False,
-        metadata={"help": "Whether or not to disable the shuffling of the training set."},
     )
     plot_loss: bool = field(
         default=False,
