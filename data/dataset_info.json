@@ -891,6 +891,20 @@
       "assistant_tag": "assistant"
     }
   },
+  "mc_question_perception_test_train_dev_4_samples": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/data/mc_question_perception_test/mc_question_train_dev_4_samples.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "videos": "videos"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
   "mc_question_perception_test_valid": {
     "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/data/mc_question_perception_test/mc_question_valid.json",
     "formatting": "sharegpt",
