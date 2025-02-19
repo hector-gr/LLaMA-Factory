@@ -1,0 +1,13 @@
+### Note: DO NOT use quantized model or quantization_bit when merging lora adapters
+
+### model
+model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
+adapter_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/perception_test/action_localisation_vtimellm_50_epochs_lr1e-4_bs1_ga16_dsz3_warmup0.1_bs128_augData/checkpoint-400
+template: qwen2_vl
+finetuning_type: lora
+
+### export
+export_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/models/qwen2_vl_lora_sft/perception_test/action_localisation_vtimellm_50_epochs_lr1e-4_bs1_ga16_dsz3_warmup0.1_bs128_augData/checkpoint-400
+export_size: 2 # each shard will be at most 2GB in size
+export_device: cpu
+export_legacy_format: false

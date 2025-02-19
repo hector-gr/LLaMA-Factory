@@ -49,6 +49,7 @@ def configure_rope(config: "PretrainedConfig", model_args: "ModelArguments", is_
 
         current_max_length = getattr(config, "max_position_embeddings", None)
         if current_max_length and model_args.model_max_length > current_max_length:
+            # NB: this shows in INFO as the wrong line (e.g. 157 when it is 52)
             logger.info_rank0(f"Enlarge max model length from {current_max_length} to {model_args.model_max_length}.")
             setattr(config, "max_position_embeddings", model_args.model_max_length)
             rope_kwargs["factor"] = float(math.ceil(model_args.model_max_length / current_max_length))
@@ -64,8 +65,8 @@ def configure_rope(config: "PretrainedConfig", model_args: "ModelArguments", is_
             rope_kwargs["high_freq_factor"] = 4.0
     else:
         rope_kwargs["factor"] = 2.0
-
-    setattr(config, "rope_scaling", {"rope_type": model_args.rope_scaling, **rope_kwargs})
+    # TODO: check which one should override, rope_kwargs or config.rope_scaling
+    setattr(config, "rope_scaling", {**config.rope_scaling, **rope_kwargs, "type": model_args.rope_scaling, "rope_type": model_args.rope_scaling})
     logger.info_rank0(
         f"Using {model_args.rope_scaling} scaling strategy and setting scaling factor to {rope_kwargs['factor']}."
     )

@@ -75,12 +75,37 @@ class ProcessorArguments:
         metadata={"help": "The minimum number of pixels of video inputs."},
     )
     video_fps: float = field(
-        default=2.0,
+        default=None, #2.0,
         metadata={"help": "The frames to sample per second for video inputs."},
     )
     video_maxlen: int = field(
-        default=128,
+        default=None, 
         metadata={"help": "The maximum number of sampled frames for video inputs."},
+    )
+
+    use_qwen2vl_processor: bool = field(
+        default=False,
+        metadata={"help": "Whether to use the Qwen2VL processor for video processing"}
+    )
+    total_pixels: int = field(
+        default=None, # 16384 * 28 * 28,
+        metadata={"help": "The total number of pixels for video processing. Used for Qwen2VL. E.g. 12845056 = 16384 * 28 * 28 would use 16384 tokens if using the default patch size (14) and patch merge kernel size (2)."}
+    )
+    max_pixels: int = field(
+        default=None,
+        metadata={"help": "The maximum number of pixels per image/frame. Used for Qwen2VL."}
+    )
+    min_pixels: int = field(
+        default=None,
+        metadata={"help": "The minimum number of pixels per image/frame. Used for Qwen2VL."}
+    )
+    video_nframes: int = field(
+        default=None,
+        metadata={"help": "The number of frames for video processing. Used for Qwen2VL."}
+    )
+    nnodes: int = field(
+        default=1,
+        metadata={"help": "The number of nodes for distributed training."}
     )
 
 

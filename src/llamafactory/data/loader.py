@@ -263,15 +263,16 @@ def _get_preprocessed_dataset(
         **kwargs,
     )
 
-    if training_args.should_log:
-        try:
-            print("eval example:" if is_eval else "training example:")
-            dataset_processor.print_data_example(next(iter(dataset)))
-        except StopIteration:
-            if stage == "pt":
-                raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
-            else:
-                raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
+    # TODO: is this operation that costly?
+    # if training_args.should_log:
+    #     try:
+    #        print("eval example:" if is_eval else "training example:")
+    #        dataset_processor.print_data_example(next(iter(dataset)))
+    #     except StopIteration:
+    #         if stage == "pt":
+    #             raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
+    #         else:
+    #             raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
 
     return dataset
 
@@ -316,6 +317,7 @@ def get_dataset(
 
     # Load and preprocess dataset
     with training_args.main_process_first(desc="load dataset"):
+        # this only loads paths, not actual video (or text) tokens
         dataset = _get_merged_dataset(data_args.dataset, model_args, data_args, training_args, stage)
         eval_dataset = _get_merged_dataset(
             data_args.eval_dataset, model_args, data_args, training_args, stage, merge=training_args.do_predict

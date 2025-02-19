@@ -1,0 +1,80 @@
+### model
+# model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
+model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+deepspeed: examples/deepspeed/ds_z3_config.json
+resume_from_checkpoint: false
+batch_eval_metrics: true
+# compute_iou: true
+
+### dataset
+dataset: mc_question_perception_test_train_visual_sketchpad_correct_top1 # mllm_demo,identity  # video: mllm_video_demo
+eval_dataset: mc_question_perception_test_train_visual_sketchpad_correct_top1_dev_2_samples
+# tokenized_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/TokenizedLLaMA-Factory/50_epochs_fps_4_maxlen_768_total_pixels_12845056
+streaming: true
+accelerator_config:
+  dispatch_batches: false
+template: qwen2_vl
+cutoff_len: 32768 #1024
+overwrite_cache: false
+preprocessing_num_workers: 32 # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
+preprocessing_batch_size: 16 # 2 # 1 # The number of examples in one group in pre-processing.
+buffer_size: 2 # maybe per gpu?
+
+# video_resolution: 1024 # 128 # Keeps the height or width of video below this resolution.
+# video_fps: 4.0 # 2.0 # The frames to sample per second for video inputs.
+# video_maxlen: 768 # The maximum number of sampled frames for video inputs.
+# total_pixels: 12845056 # 16384 * 28 * 28
+max_pixels: 78400 # 100 * 28 * 28
+min_pixels: 62720 # 80*28*28
+# max_pixels: 63504 # 81 * 28 * 28
+# min_pixels: 62720 # 80 * 28 * 28
+use_qwen2vl_processor: true
+image_resolution: 5000 # i think this is only an upper bound, so setting to ridiculously high
+
+
+### output
+logging_steps: 5 # 10
+save_steps: 50 # every epoch - 4715 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
+plot_loss: true
+# overwrite_output_dir: true
+
+### train
+flash_attn: fa2
+#  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
+per_device_train_batch_size: 1 # 1
+gradient_accumulation_steps: 2
+learning_rate: 1.0e-4
+
+max_steps: 332 # 4645 * 3 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
+num_train_epochs: 3
+
+# without split_batches, it fails to concatenate sequences of different lengths
+# split_batches: true # ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
+lr_scheduler_type: constant
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 9000 # 180000000
+
+### eval
+val_size: 0 # 0.01 # Streaming mode should have an integer val size. # If you use a value different than 0, you get: `Cannot specify `val_size` if `eval_dataset` is not None.Cannot specify `val_size` if `eval_dataset` is not None.`
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 100 # 500 # lower for dev
+seed: 42
+
+report_to: wandb
+# run_name: 50epoch_lr1e-4_bs1_ga16_dsz3_warmup0.1_bs128_augData_4fps # optional
+# output_dir: output/qwen2_vl-7b/perception_test/action_localisation_vtimellm_50_epochs_lr1e-4_bs1_ga16_dsz3_warmup0.1_bs128_augData_4fps # must be given
+# deepspeed: examples/deepspeed/ds_z3_config.json
+# run_name: create_data # optional
+# run_name: create_data
+# output_dir: output/qwen2_vl-7b/perception_test/create_data
+run_name: 3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens
+output_dir: output/qwen2_vl-7b/mc_question_perception_test/3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens
+ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.

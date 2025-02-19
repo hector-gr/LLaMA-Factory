@@ -118,7 +118,8 @@ class MMPluginMixin:
         if (image.width * image.height) < image_min_pixels:
             resize_factor = math.sqrt(image_min_pixels / (image.width * image.height))
             width, height = int(image.width * resize_factor), int(image.height * resize_factor)
-            image = image.resize((width, height), resample=Image.Resampling.NEAREST)
+            # print(f"In /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/mm_plugin.py _preprocess_image(), resizing image from {image.width}x{image.height} to {width}x{height}")
+            image = image.resize((width, height), resample=Image.NEAREST)
 
         if image.mode != "RGB":
             image = image.convert("RGB")
@@ -168,16 +169,47 @@ class MMPluginMixin:
         """
         results = []
         for video in videos:
-            container = av.open(video, "r")
-            video_stream = next(stream for stream in container.streams if stream.type == "video")
-            sample_indices = self._get_video_sample_indices(video_stream, **kwargs)
-            frames: List["ImageObject"] = []
-            container.seek(0)
-            for frame_idx, frame in enumerate(container.decode(video_stream)):
-                if frame_idx in sample_indices:
-                    frames.append(frame.to_image())
+            if kwargs.get("use_qwen2vl_processor", False):
+                from qwen_vl_utils import fetch_video
+                assert "total_pixels" in kwargs, "total_pixels must be set for Qwen2VL"
+                total_pixels = kwargs.get("total_pixels")
+                max_frames = kwargs.get("video_maxlen")
+                fps = kwargs.get("video_fps")
+                nframes = kwargs.get("video_nframes")
+                # if set, max_pixels overrides total_pixels
+                max_pixels, min_pixels = kwargs.get("max_pixels"), kwargs.get("min_pixels")
+                lf2qwen = {
+                    "total_pixels": "total_pixels",
+                    "max_pixels": "max_pixels",
+                    "min_pixels": "min_pixels",
+                    "video_maxlen": "max_frames",
+                    "video_fps": "fps",
+                    "video_nframes": "nframes",
+                }
+                assert all(k in kwargs for k in lf2qwen)
+                qwen_vutils_kwargs = {lf2qwen[k]: v for k, v in kwargs.items() 
+                        if (k in lf2qwen.keys() and v is not None)}
+                # print("qwen_vutils_kwargs:", qwen_vutils_kwargs, "_regularize_videos kwargs:", kwargs)
+                assert (total_pixels and fps and max_frames) or (nframes and total_pixels) \
+                    or (max_pixels and nframes) or (max_pixels and fps and max_frames), \
+                    f"You need a method to set number of frames and per-frame pixels for Qwen2VL, " \
+                    f"however only {set(qwen_vutils_kwargs.keys())} are set."
+                qwen_vutils_kwargs["video"] = video
+                frames = fetch_video(qwen_vutils_kwargs)
+            else:
+                container = av.open(video, "r")
+                video_stream = next(stream for stream in container.streams if stream.type == "video")
+                total_frames = video_stream.frames
 
-            frames = self._regularize_images(frames, **kwargs)
+                sample_frames = self._get_video_sample_frames(video_stream, **kwargs)
+                sample_indices = np.linspace(0, total_frames - 1, sample_frames).astype(np.int32)
+                frames: List["ImageObject"] = []
+                container.seek(0)
+                for frame_idx, frame in enumerate(container.decode(video_stream)):
+                    if frame_idx in sample_indices:
+                        frames.append(frame.to_image())
+
+                frames = self._regularize_images(frames, **kwargs)
             results.append(frames)
 
         return results
@@ -233,10 +265,16 @@ class MMPluginMixin:
         if len(videos) != 0:
             videos = self._regularize_videos(
                 videos,
-                image_max_pixels=getattr(processor, "video_max_pixels", 256 * 256),
+                # image_resolution=getattr(processor, "video_resolution", None), # 128),
+                image_max_pixels=getattr(processor, "video_max_pixels", 256 * 256), # the new image_resolution
                 image_min_pixels=getattr(processor, "video_min_pixels", 16 * 16),
-                video_fps=getattr(processor, "video_fps", 2.0),
-                video_maxlen=getattr(processor, "video_maxlen", 128),
+                video_fps=getattr(processor, "video_fps", None), # 1.0),
+                video_maxlen=getattr(processor, "video_maxlen", None), # 64),
+                use_qwen2vl_processor=getattr(processor, "use_qwen2vl_processor", False),
+                total_pixels=getattr(processor, "total_pixels", None), #16384 * 28 * 28),
+                video_nframes=getattr(processor, "video_nframes", None),
+                max_pixels=getattr(processor, "max_pixels", None),
+                min_pixels=getattr(processor, "min_pixels", None),
             )
             if "videos" in inspect.signature(video_processor.preprocess).parameters:  # for qwen2_vl and video_llava
                 mm_inputs.update(video_processor(images=None, videos=videos, return_tensors="pt"))

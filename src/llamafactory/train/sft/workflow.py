@@ -24,8 +24,15 @@ from ...extras.misc import calculate_tps, get_logits_processor
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor
+from .metric import (
+    ComputeAccuracy,
+    ComputeClassificationAccuracy,
+    ComputeIoU,
+    ComputeSimilarity,
+    eval_logit_processor,
+)
 from .trainer import CustomSeq2SeqTrainer
+# from ..callbacks import DumpExamplesCallback
 
 
 if TYPE_CHECKING:
@@ -50,6 +57,16 @@ def run_sft(
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
     dataset_module = get_dataset(template, model_args, data_args, training_args, stage="sft", **tokenizer_module)
     model = load_model(tokenizer, model_args, finetuning_args, training_args.do_train)
+
+    # Add DumpExamplesCallback if validation set exists
+    if training_args.do_eval and dataset_module.get("eval_dataset") is not None:
+        if callbacks is None:
+            callbacks = []
+        # callbacks.append(DumpExamplesCallback(
+        #     tokenizer=tokenizer,
+        #     dataset=dataset_module["eval_dataset"],
+        #     n_examples=2
+        # ))
 
     if getattr(model, "is_quantized", False) and not training_args.do_train:
         setattr(model, "_hf_peft_config_loaded", True)  # hack here: make model compatible with prediction
@@ -76,6 +93,12 @@ def run_sft(
         metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
+        metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
+    elif finetuning_args.compute_iou:
+        metric_module["compute_metrics"] = ComputeIoU(tokenizer=tokenizer)
+        metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
+    elif finetuning_args.compute_classification_accuracy:
+        metric_module["compute_metrics"] = ComputeClassificationAccuracy(tokenizer=tokenizer)
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
 
     # Keyword arguments for `model.generate`
