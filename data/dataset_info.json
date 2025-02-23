@@ -1002,7 +1002,7 @@
     }
   },
   "mc_question_perception_test_train_visual_sketchpad_v0.2correct_top1": {
-    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.2correct_top1_minusholdout/conversations_filtered_32768.json",
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.2correct_top1_minusholdout/conversations_filtered_32768_0.33_tokens_per_char.json",
     "formatting": "sharegpt",
     "columns": {
       "messages": "messages",

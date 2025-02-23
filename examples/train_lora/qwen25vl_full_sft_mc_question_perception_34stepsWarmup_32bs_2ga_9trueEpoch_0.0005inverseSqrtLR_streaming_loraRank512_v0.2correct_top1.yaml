@@ -2,17 +2,24 @@
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
 # model_name_or_path: Qwen/Qwen2.5-VL-7B-Instruct
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/c6adf136ef57b4f6a6d7897c11bd3863bda237d7/
-model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/6e6556e8ce728c7b3e438d75ebf04ec93403dc19/
+model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/6e6556e8ce728c7b3e438d75ebf04ec93403dc19/ # -----
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
 
 ### method
 stage: sft
 do_train: true
-finetuning_type: full
+finetuning_type: lora
+lora_target: all
+lora_rank: 512
 deepspeed: examples/deepspeed/ds_z3_config.json
 resume_from_checkpoint: false
 batch_eval_metrics: true
 # compute_iou: true
+
+# model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_v0.2correct_top1/checkpoint-136
+# resume_from_checkpoint: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_v0.2correct_top1/checkpoint-136
+# ignore_data_skip: true # skips all the previous dataloading steps, so we can continue training from the last checkpoint but it does not get the same exact batch
+
 
 ### dataset
 dataset: mc_question_perception_test_train_visual_sketchpad_v0.2correct_top1 # mllm_demo,identity  # video: mllm_video_demo
@@ -45,7 +52,7 @@ image_max_pixels: 25000000 # 5000 # i think this is only an upper bound, so sett
 
 ### output
 logging_steps: 5 # 10
-save_steps: 68 # every epoch - 4715 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
+save_steps: 272 # every epoch - 4715 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
 plot_loss: true
 # overwrite_output_dir: true
 
@@ -54,7 +61,7 @@ flash_attn: fa2
 #  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
 per_device_train_batch_size: 1 # 1
 gradient_accumulation_steps: 2
-learning_rate: 1.0e-3
+learning_rate: 0.0001
 
 max_steps: 1224 # 4645 * 3 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
 num_train_epochs: 9
@@ -81,6 +88,6 @@ report_to: wandb
 # run_name: create_data # optional
 # run_name: create_data
 # output_dir: output/qwen2_vl-7b/perception_test/create_data
-run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.001inverseSqrtLR_streaming_v0.2correct_top1
-output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.001inverseSqrtLR_streaming_v0.2correct_top1
+run_name: qwen25vl_lora_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.0005inverseSqrtLR_streaming_loraRank512_v0.2correct_top1
+output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_lora_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.0005inverseSqrtLR_streaming_loraRank512_v0.2correct_top1
 ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.

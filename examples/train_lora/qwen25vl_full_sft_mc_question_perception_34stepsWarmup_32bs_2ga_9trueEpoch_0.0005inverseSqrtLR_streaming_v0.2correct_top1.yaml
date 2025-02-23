@@ -45,7 +45,7 @@ image_max_pixels: 25000000 # 5000 # i think this is only an upper bound, so sett
 
 ### output
 logging_steps: 5 # 10
-save_steps: 68 # every epoch - 4715 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
+save_steps: 272 # every epoch - 4715 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
 plot_loss: true
 # overwrite_output_dir: true
 
@@ -54,7 +54,7 @@ flash_attn: fa2
 #  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
 per_device_train_batch_size: 1 # 1
 gradient_accumulation_steps: 2
-learning_rate: 1.0e-3
+learning_rate: 0.0005
 
 max_steps: 1224 # 4645 * 3 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
 num_train_epochs: 9
@@ -81,6 +81,6 @@ report_to: wandb
 # run_name: create_data # optional
 # run_name: create_data
 # output_dir: output/qwen2_vl-7b/perception_test/create_data
-run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.001inverseSqrtLR_streaming_v0.2correct_top1
-output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.001inverseSqrtLR_streaming_v0.2correct_top1
+run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.0005inverseSqrtLR_streaming_v0.2correct_top1
+output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_0.0005inverseSqrtLR_streaming_v0.2correct_top1
 ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.
