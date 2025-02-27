@@ -30,15 +30,17 @@ class DatasetAttr:
     """
 
     # basic configs
-    load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file"]
+    load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file", "webdataset"]
     dataset_name: str
-    formatting: Literal["alpaca", "sharegpt"] = "alpaca"
+    formatting: Literal["alpaca", "sharegpt", "webdataset_sharegpt"] = "alpaca"
     ranking: bool = False
     # extra configs
     subset: Optional[str] = None
     split: str = "train"
     folder: Optional[str] = None
     num_samples: Optional[int] = None
+    # webdataset configs
+    webdataset_pattern: Optional[str] = None  # Pattern for WebDataset shards
     # common columns
     system: Optional[str] = None
     tools: Optional[str] = None
@@ -135,8 +137,15 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         has_hf_url = "hf_hub_url" in dataset_info[name]
         has_ms_url = "ms_hub_url" in dataset_info[name]
         has_om_url = "om_hub_url" in dataset_info[name]
+        has_webdataset = "webdataset_pattern" in dataset_info[name]
 
-        if has_hf_url or has_ms_url or has_om_url:
+        if has_webdataset:
+            dataset_attr = DatasetAttr("webdataset", dataset_name=name)
+            # Set WebDataset specific attributes
+            dataset_attr.webdataset_pattern = dataset_info[name]["webdataset_pattern"]
+            if "formatting" in dataset_info[name]:
+                dataset_attr.formatting = dataset_info[name]["formatting"]
+        elif has_hf_url or has_ms_url or has_om_url:
             if has_ms_url and (use_modelscope() or not has_hf_url):
                 dataset_attr = DatasetAttr("ms_hub", dataset_name=dataset_info[name]["ms_hub_url"])
             elif has_om_url and (use_openmind() or not has_hf_url):
@@ -146,7 +155,13 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         elif "script_url" in dataset_info[name]:
             dataset_attr = DatasetAttr("script", dataset_name=dataset_info[name]["script_url"])
         else:
-            dataset_attr = DatasetAttr("file", dataset_name=dataset_info[name]["file_name"])
+            file_name = dataset_info[name]["file_name"]
+            # Check if this is a WebDataset pattern
+            if "{" in file_name and "}" in file_name and ".tar" in file_name:
+                dataset_attr = DatasetAttr("webdataset", dataset_name=name)
+                dataset_attr.webdataset_pattern = file_name
+            else:
+                dataset_attr = DatasetAttr("file", dataset_name=file_name)
 
         dataset_attr.join(dataset_info[name])
         dataset_list.append(dataset_attr)

@@ -1015,6 +1015,48 @@
       "assistant_tag": "assistant"
     }
   },
+  "mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_wds": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/v0.3correct_top1-{000000..000003}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/shards.json",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_128_samples": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/shards_dev_128.json",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
   "mc_question_perception_test_train_visual_sketchpad_correct_top1_dev_2_samples": {
     "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0correct_top1/conversations_dev_2.json",
     "formatting": "sharegpt",

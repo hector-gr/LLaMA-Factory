@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Type, Uni
 from ..extras import logging
 from .data_utils import Role
 
+import wids
+
 
 if TYPE_CHECKING:
     from datasets import Dataset, IterableDataset
@@ -127,6 +129,25 @@ class SharegptDatasetConverter(DatasetConverter):
         odd_tags = (self.dataset_attr.user_tag, self.dataset_attr.observation_tag)
         even_tags = (self.dataset_attr.assistant_tag, self.dataset_attr.function_tag)
         accept_tags = (odd_tags, even_tags)
+        
+        logger = logging.get_logger(__name__)
+        assert isinstance(example, dict), f"example is not a dict: {type(example)=}"
+        logger.info_rank0(f"SharegptDatasetConverter example keys: {list(example.keys())}")
+        
+        # Check if the messages key is missing
+        if self.dataset_attr.messages not in example:
+            logger.warning_rank0(f"Missing messages key '{self.dataset_attr.messages}' in example")
+            return {
+                "_prompt": [],
+                "_response": [],
+                "_system": "",
+                "_tools": "",
+                "_images": [],
+                "_videos": [],
+                "_audios": [],
+            }
+            # raise ValueError(f"Missing messages key '{self.dataset_attr.messages=}' in example")
+        
         messages = example[self.dataset_attr.messages]
         if (
             self.dataset_attr.system_tag
@@ -158,7 +179,7 @@ class SharegptDatasetConverter(DatasetConverter):
         ):
             logger.warning_rank0(f"Invalid message count in {messages}.")
             broken_data = True
-
+   
         if broken_data:
             logger.warning_rank0("Skipping this abnormal example.")
             prompt, response = [], []
@@ -198,6 +219,7 @@ class SharegptDatasetConverter(DatasetConverter):
             prompt = aligned_messages[:-1]
             response = aligned_messages[-1:]
 
+        # still a list at this point
         output = {
             "_prompt": prompt,
             "_response": response,
@@ -210,9 +232,78 @@ class SharegptDatasetConverter(DatasetConverter):
         return output
 
 
+@dataclass
+class WebDatasetSharegptConverter(SharegptDatasetConverter):
+    """
+    Converter for WebDataset in sharegpt format.
+    This is essentially the same as SharegptDatasetConverter but ensures compatibility
+    with the WebDataset format.
+    """
+    def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
+        # Debug logging
+        logger = logging.get_logger(__name__)
+        logger.info_rank0(f"WebDatasetSharegptConverter example keys: {list(example.keys())}")
+        
+        # Check if this is a dummy example (only has __dummy__ key)
+        if set(example.keys()) == {"__dummy__"}:
+            logger.warning_rank0("Received example with only __dummy__ key, returning empty example")
+            return {
+                "_prompt": [],
+                "_response": [],
+                "_system": "",
+                "_tools": "",
+                "_images": [],
+                "_videos": [],
+                "_audios": [],
+            }
+        
+        logger.info_rank0(f"WebDatasetSharegptConverter dataset_attr.messages: {self.dataset_attr.messages}")
+        
+        # Check if we need to map keys
+        if self.dataset_attr.messages and self.dataset_attr.messages not in example:
+            # Try to find the correct key for messages
+            if "conversations" in example:
+                logger.info_rank0(f"Using 'conversations' instead of '{self.dataset_attr.messages}'")
+                example["messages"] = example["conversations"]
+            elif "messages" in example:
+                logger.info_rank0(f"Using 'messages' as fallback")
+                # If dataset_attr.messages is not "messages", create a mapping
+                if self.dataset_attr.messages != "messages":
+                    example[self.dataset_attr.messages] = example["messages"]
+        
+        # Check if messages exist and have the right format
+        messages_key = self.dataset_attr.messages or "messages"
+        if messages_key in example:
+            messages = example[messages_key]
+            
+            # Check if messages need to be reformatted
+            if isinstance(messages, list) and len(messages) > 0:
+                # Check if messages have the expected structure
+                if isinstance(messages[0], dict):
+                    # Check if we need to map role/content keys
+                    if self.dataset_attr.role_tag not in messages[0] or self.dataset_attr.content_tag not in messages[0]:
+                        # Try to find alternative keys
+                        if "role" in messages[0] and "content" in messages[0]:
+                            logger.info_rank0(f"Mapping 'role'/'content' to '{self.dataset_attr.role_tag}'/{self.dataset_attr.content_tag}")
+                            # Create a new list with the correct keys
+                            new_messages = []
+                            for msg in messages:
+                                new_msg = {
+                                    self.dataset_attr.role_tag: msg["role"],
+                                    self.dataset_attr.content_tag: msg["content"]
+                                }
+                                new_messages.append(new_msg)
+                            example[messages_key] = new_messages
+        
+        # Call the parent class implementation
+        # here returns passes example which is single dict with 'messages'  and 'images' 
+        return super().__call__(example)
+
+
 DATASET_CONVERTERS = {
     "alpaca": AlpacaDatasetConverter,
     "sharegpt": SharegptDatasetConverter,
+    "webdataset_sharegpt": WebDatasetSharegptConverter,
 }
 
 
@@ -252,8 +343,15 @@ def align_dataset(
         _videos: [],
         _audios: [],
     """
-
-    column_names = list(next(iter(dataset)).keys())
+    # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/converter.py:(343) {next(iter(dataset))=}")
+    if isinstance(dataset, wids.ShardListDataset):
+        # data_iter = iter(wids.DistributedChunkedSampler(dataset))
+        # breakpoint()
+        next_data = dataset[0]
+        # next_data = dataset[next(data_iter)]
+    else:
+        next_data = next(iter(dataset))
+    column_names = list(next_data.keys())
     kwargs = {}
     if not data_args.streaming:
         kwargs = dict(
@@ -263,9 +361,21 @@ def align_dataset(
         )
 
     dataset_converter = get_dataset_converter(dataset_attr.formatting, dataset_attr, data_args)
-    return dataset.map(
-        dataset_converter,
-        batched=False,
-        remove_columns=column_names,
-        **kwargs,
-    )
+    if isinstance(dataset, wids.ShardListDataset):
+        # breakpoint()
+        assert len(kwargs) == 0, f"kwargs is not empty for ShardListDataset: {kwargs=}"
+        dataset = dataset.add_transform(
+            dataset_converter,
+            # batched=False,
+            # TODO: can we just ignore this?
+            #
+            # remove_columns=column_names, 
+        )
+    else:
+        dataset = dataset.map(
+            dataset_converter,
+            batched=False,
+            remove_columns=column_names,
+            **kwargs,
+        )
+    return dataset

@@ -89,7 +89,8 @@ class SupervisedDatasetProcessor(DatasetProcessor):
         # build inputs with format `<bos> X Y <eos>` and labels with format `<ignore> ... <ignore> Y <eos>`
         # for multiturn examples, we only mask the prompt part in each prompt-response pair.
         model_inputs = defaultdict(list)
-        for i in range(len(examples["_prompt"])):
+        for i in range(len(examples["_prompt"])): # loop over the batch dimension
+            # 
             if len(examples["_prompt"][i]) % 2 != 1 or len(examples["_response"][i]) != 1:
                 logger.warning_rank0(
                     "Dropped invalid example: {}".format(examples["_prompt"][i] + examples["_response"][i])
@@ -111,10 +112,15 @@ class SupervisedDatasetProcessor(DatasetProcessor):
             model_inputs["images"].append(examples["_images"][i])
             model_inputs["videos"].append(examples["_videos"][i])
             model_inputs["audios"].append(examples["_audios"][i])
-
+        # remove the batch dimension? everything seems to break otherwise when using ShardListDataset, not sure why
+        if len(examples["_prompt"]) == 1:
+            model_inputs = {k: v[0] for k, v in model_inputs.items()}
         return model_inputs
 
     def print_data_example(self, example: Dict[str, List[int]]) -> None:
+        if isinstance(example["input_ids"], list) and len(example["input_ids"]) == 1 and isinstance(example["input_ids"][0], list):
+            example = {k: v[0] for k, v in example.items()}
+        print(f"{example.keys()=}")
         valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
         print("input_ids:\n{}".format(example["input_ids"]))
         print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))

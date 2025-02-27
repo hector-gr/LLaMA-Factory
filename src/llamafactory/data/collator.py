@@ -94,7 +94,28 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
     def __call__(self, features: Sequence[Dict[str, Any]]) -> Dict[str, "torch.Tensor"]:
         batch_images, batch_videos, batch_audios = [], [], []
         batch_imglens, batch_vidlens, batch_audlens, batch_input_ids = [], [], [], []
-        for feature in features:
+        
+        # Print the number of features
+        print(f"##################################################")
+        print(f"Number of features: {len(features)}")
+        print(f"##################################################")
+        
+        for i, feature in enumerate(features):
+            # Print feature keys for debugging
+            print(f"##################################################")
+            print(f"Feature {i} keys: {list(feature.keys())}")
+            print(f"##################################################")
+            
+            # Check if input_ids is missing
+            if "input_ids" not in feature:
+                print(f"##################################################")
+                print(f"ERROR: Feature {i} is missing input_ids!")
+                print(f"Feature {i} keys: {list(feature.keys())}")
+                print(f"##################################################")
+                # Instead of creating dummy values, raise an error to fix the root cause
+                raise ValueError(f"Feature {i} is missing input_ids! This indicates a problem in the dataset processing pipeline. Keys: {list(feature.keys())}")
+                # The error above will help identify and fix the root cause instead of silently continuing with dummy values
+            
             images = feature.pop("images", None) or []
             videos = feature.pop("videos", None) or []
             audios = feature.pop("audios", None) or []

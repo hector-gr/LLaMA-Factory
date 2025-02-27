@@ -135,7 +135,7 @@ class MMPluginMixin:
         total_frames = video_stream.frames
         if total_frames == 0:  # infinite video
             return np.linspace(0, video_maxlen - 1, video_maxlen).astype(np.int32)
-
+        assert video_fps is not None and video_maxlen is not None, f"video_fps and video_maxlen must be set in your config.yaml when processing video, but got {video_fps=} and {video_maxlen=}"
         sample_frames = math.floor(float(video_stream.duration * video_stream.time_base) * video_fps)
         sample_frames = min(total_frames, video_maxlen, sample_frames)
         return np.linspace(0, total_frames - 1, sample_frames).astype(np.int32)
@@ -145,6 +145,9 @@ class MMPluginMixin:
         Regularizes images to avoid error. Including reading and pre-processing.
         """
         results = []
+        # TODO: fix this hacky thing
+        if len(images) == 1 and isinstance(images[0], list):
+            images = images[0]
         for image in images:
             if isinstance(image, str):
                 image = Image.open(image)
@@ -1185,7 +1188,6 @@ class Qwen2vlPlugin(BasePlugin):
 
         if len(videos) != num_video_tokens:
             raise ValueError(f"The number of videos does not match the number of {VIDEO_PLACEHOLDER} tokens.")
-
         return messages
 
     @override
@@ -1200,6 +1202,13 @@ class Qwen2vlPlugin(BasePlugin):
         batch_ids: Sequence[List[int]],
         processor: Optional["ProcessorMixin"],
     ) -> Dict[str, Union[List[int], "torch.Tensor"]]:
+        # TODO: fix this hacky thing
+        if len(audios) == 1 and audios[0] is None:
+            audios = []
+        if len(videos) == 1 and videos[0] is None:
+            videos = []
+        if len(images) == 1 and images[0] is None:
+            images = []
         self._validate_input(images, videos, audios)
         mm_inputs = self._get_mm_inputs(images, videos, audios, processor)
         fps_per_video = mm_inputs.pop("fps_per_video", [])
