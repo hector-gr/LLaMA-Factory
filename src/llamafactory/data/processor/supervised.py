@@ -89,9 +89,13 @@ class SupervisedDatasetProcessor(DatasetProcessor):
         # build inputs with format `<bos> X Y <eos>` and labels with format `<ignore> ... <ignore> Y <eos>`
         # for multiturn examples, we only mask the prompt part in each prompt-response pair.
         model_inputs = defaultdict(list)
+        # TODO: fix this hack. Sometimes we miss the batch dimension here
+        if "_prompt" in examples and isinstance(examples["_prompt"], list) \
+            and isinstance(examples["_prompt"][0], dict):
+            examples = {k: [v] for k, v in examples.items()}
         for i in range(len(examples["_prompt"])): # loop over the batch dimension
-            # 
             if len(examples["_prompt"][i]) % 2 != 1 or len(examples["_response"][i]) != 1:
+                breakpoint()
                 logger.warning_rank0(
                     "Dropped invalid example: {}".format(examples["_prompt"][i] + examples["_response"][i])
                 )

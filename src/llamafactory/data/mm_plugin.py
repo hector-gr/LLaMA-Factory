@@ -256,7 +256,7 @@ class MMPluginMixin:
         video_processor: "BaseImageProcessor" = getattr(processor, "video_processor", image_processor)
         feature_extractor: "SequenceFeatureExtractor" = getattr(processor, "feature_extractor", None)
         mm_inputs = {}
-
+        breakpoint()
         if len(images) != 0:
             images = self._regularize_images(
                 images,
@@ -1134,7 +1134,6 @@ class Qwen2vlPlugin(BasePlugin):
             )
             mm_inputs.update(image_processor(images=None, videos=videos, return_tensors="pt"))
             mm_inputs["fps_per_video"] = fps_per_video
-
         return mm_inputs
 
     @override

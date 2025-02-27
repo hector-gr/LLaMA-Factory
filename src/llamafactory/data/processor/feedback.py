@@ -123,7 +123,7 @@ class FeedbackDatasetProcessor(DatasetProcessor):
 
     def print_data_example(self, example: Dict[str, List[int]]) -> None:
         valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
-        print("input_ids:\n{}".format(example["input_ids"]))
+        # print("input_ids:\n{}".format(example["input_ids"]))
         print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
-        print("label_ids:\n{}".format(example["labels"]))
+        # print("label_ids:\n{}".format(example["labels"]))
         print(f"labels:\n{self.tokenizer.decode(valid_labels, skip_special_tokens=False)}")

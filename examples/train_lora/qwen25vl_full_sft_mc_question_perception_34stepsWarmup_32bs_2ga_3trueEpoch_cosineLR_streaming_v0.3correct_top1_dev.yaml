@@ -12,7 +12,8 @@ finetuning_type: full
 deepspeed: examples/deepspeed/ds_z3_config.json
 resume_from_checkpoint: false
 batch_eval_metrics: true
-cache_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/tmp/tmp_v0.3correct_top1_dev_128_samples_1_gpu
+# cache_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/tmp/tmp_v0.3correct_top1_dev_128_samples_1_gpu
+cache_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/tmp/tmp_v0.3correct_top1_dev_128_samples_2_gpu
 # compute_iou: true
 
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_v0.2correct_top1/checkpoint-136
@@ -21,6 +22,9 @@ cache_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/tmp/
 
 
 ### dataset
+# these are for ShardListDataset
+# dataset: mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_128_samples_shardlist # mllm_demo,identity  # video: mllm_video_demo
+# eval_dataset: mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_128_samples_shardlist
 dataset: mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_128_samples # mllm_demo,identity  # video: mllm_video_demo
 eval_dataset: mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_128_samples
 # tokenized_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/TokenizedLLaMA-Factory/50_epochs_fps_4_maxlen_768_total_pixels_12845056
@@ -30,11 +34,12 @@ accelerator_config:
 template: qwen2_vl
 cutoff_len: 32768 #1024
 overwrite_cache: false
-preprocessing_num_workers: null # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
-preprocessing_batch_size: 16 # 2 # 1 # The number of examples in one group in pre-processing.
-preprocessing_batch_size: 1 # debugging
+# preprocessing_num_workers: null # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
+preprocessing_num_workers: 4 # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
+# preprocessing_batch_size: 16 # 2 # 1 # The number of examples in one group in pre-processing.
+preprocessing_batch_size: 6 # debugging
 # buffer_size: 2 # maybe per gpu?
-buffer_size: 1 # debugging
+buffer_size: 8 # debugging
 
 
 # video_resolution: 1024 # 128 # Keeps the height or width of video below this resolution.

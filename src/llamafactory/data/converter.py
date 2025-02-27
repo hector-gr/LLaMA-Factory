@@ -21,6 +21,7 @@ from ..extras import logging
 from .data_utils import Role
 
 import wids
+import webdataset as wds
 
 
 if TYPE_CHECKING:
@@ -271,6 +272,65 @@ class WebDatasetSharegptConverter(SharegptDatasetConverter):
                 if self.dataset_attr.messages != "messages":
                     example[self.dataset_attr.messages] = example["messages"]
         
+        # TODO: For some reason we need to remove batch dim ... hacky
+        messages_key = self.dataset_attr.messages or "messages"
+        if messages_key in example:
+            messages = example[messages_key]
+            if isinstance(messages, list) and len(messages) == 1 and \
+                len(messages[0]) > 1 and isinstance(messages[0][0], dict):
+                example[messages_key] = messages[0]
+                messages = example[messages_key]
+                example['images'] = example['images'][0]
+                if 'videos' in example:
+                    example['videos'] = example['videos'][0]
+                if 'audios' in example:
+                    example['audios'] = example['audios'][0]
+
+        # Call the parent class implementation
+        # here returns passes example which is single dict with 'messages'  and 'images' 
+        
+        return super().__call__(example)
+
+
+@dataclass
+class ShardListDatasetSharegptConverter(SharegptDatasetConverter):
+    """
+    Converter for ShardListDataset in sharegpt format.
+    This is essentially the same as SharegptDatasetConverter but ensures compatibility
+    with the ShardListDataset format.
+    """
+    def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
+        # Debug logging
+        logger = logging.get_logger(__name__)
+        logger.info_rank0(f"ShardListDatasetSharegptConverter example keys: {list(example.keys())}")
+        
+        # Check if this is a dummy example (only has __dummy__ key)
+        if set(example.keys()) == {"__dummy__"}:
+            logger.warning_rank0("Received example with only __dummy__ key, returning empty example")
+            return {
+                "_prompt": [],
+                "_response": [],
+                "_system": "",
+                "_tools": "",
+                "_images": [],
+                "_videos": [],
+                "_audios": [],
+            }
+        
+        logger.info_rank0(f"ShardListDatasetSharegptConverter dataset_attr.messages: {self.dataset_attr.messages}")
+        
+        # Check if we need to map keys
+        if self.dataset_attr.messages and self.dataset_attr.messages not in example:
+            # Try to find the correct key for messages
+            if "conversations" in example:
+                logger.info_rank0(f"Using 'conversations' instead of '{self.dataset_attr.messages}'")
+                example["messages"] = example["conversations"]
+            elif "messages" in example:
+                logger.info_rank0(f"Using 'messages' as fallback")
+                # If dataset_attr.messages is not "messages", create a mapping
+                if self.dataset_attr.messages != "messages":
+                    example[self.dataset_attr.messages] = example["messages"]
+        
         # Check if messages exist and have the right format
         messages_key = self.dataset_attr.messages or "messages"
         if messages_key in example:
@@ -304,6 +364,7 @@ DATASET_CONVERTERS = {
     "alpaca": AlpacaDatasetConverter,
     "sharegpt": SharegptDatasetConverter,
     "webdataset_sharegpt": WebDatasetSharegptConverter,
+    "shardlistdataset_sharegpt": ShardListDatasetSharegptConverter,
 }
 
 
@@ -349,6 +410,20 @@ def align_dataset(
         # breakpoint()
         next_data = dataset[0]
         # next_data = dataset[next(data_iter)]
+    elif isinstance(dataset, wds.WebDataset):
+        world_size = 1
+        try:
+            import torch.distributed
+
+            if torch.distributed.is_available() and torch.distributed.is_initialized():
+                group = torch.distributed.group.WORLD
+                world_size = torch.distributed.get_world_size(group=group)
+        except ModuleNotFoundError:
+            pass
+        if world_size > 1:
+            next_data = {}
+        else:
+            next_data = next(iter(dataset))
     else:
         next_data = next(iter(dataset))
     column_names = list(next_data.keys())
@@ -368,8 +443,11 @@ def align_dataset(
             dataset_converter,
             # batched=False,
             # TODO: can we just ignore this?
-            #
             # remove_columns=column_names, 
+        )
+    elif isinstance(dataset, wds.WebDataset):
+        dataset = dataset.map(
+            dataset_converter
         )
     else:
         dataset = dataset.map(

@@ -70,17 +70,194 @@ def load_webdataset(
     # we get /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/v0.3correct_top1-{000000..000003}.tar
     # get all the shards by expansing the { } part
 
+    # wds_dataset = wids.ShardListDataset(
+    #     path, 
+    #     cache_dir=cache_dir, 
+    #     # cache_size=10, # the number of shards to keep in the cache
+    #     keep=True
+    # )
+    # from https://github.com/webdataset/webdataset/issues/250
+    wds_dataset = wds.WebDataset(
+        path, resampled=True
+    ).shuffle(
+        # 1000
+        1000
+    # ).decode(
+    #     # 'pil'
+    # # ).to_tuple(
+    # #     "groundlevel.jpg", "overhead.jpg", "metadata.json","__key__"
+    )
+    world_size = 1
+    try:
+        import torch.distributed
+
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            group = torch.distributed.group.WORLD
+            world_size = torch.distributed.get_world_size(group=group)
+    except ModuleNotFoundError:
+        pass
+    if not world_size > 1:
+        iterator = iter(wds_dataset)
+        # iterator = torch.utils.data.DataLoader(wds_dataset, num_workers=2)
+        # THis breaks if worldsize > 1 as the loader doesn't have workers!
+        try:
+            first_sample = next(iterator)
+            print(f"{first_sample=}")
+        except StopIteration:
+            print("The dataset is empty!")
+    
+    # We now apply the shuffling with the sampler
+    # And use DistributedChunkedSampler for distributed training
+    # - The converter is called as usual by align_dataset
+    
+    
+    # Sample counter for logging
+    sample_count = [0]
+    valid_count = [0]
+    error_count = [0]
+    
+    # Process sample function with better error handling
+    def process_sample(sample):
+        # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/loader.py:(342) {sample=}")
+        sample_count[0] += 1
+        
+        # # Log progress periodically
+        # if sample_count[0] % 100 == 0 and training_args.local_process_index == 0:
+        #     logger.info_rank0(f"Processed {sample_count[0]} samples, {valid_count[0]} valid, {error_count[0]} errors")
+        
+        # # Log sample keys for debugging
+        # if training_args.local_process_index == 0 and (sample_count[0] <= 5 or random.random() < 0.01):  # Log first 5 samples and ~1% of others
+        #     logger.info_rank0(f"WebDataset sample keys: {list(sample.keys())}")
+        
+        # Use output.json instead of json
+        if "output.json" not in sample:
+            if training_args.local_process_index == 0 and (sample_count[0] <= 5 or random.random() < 0.01):
+                logger.warning_rank0(f"Sample missing 'output.json' key: {list(sample.keys())}")
+                raise ValueError(f"Sample missing 'output.json' key: {list(sample.keys())}")
+            error_count[0] += 1
+            return None
+        
+        # try:
+        # WebDataset's decode() should have already converted the JSON string to a Python object
+        # But handle both cases for robustness
+        if isinstance(sample["output.json"], str):
+            try:
+                json_data = json.loads(sample["output.json"])
+            except json.JSONDecodeError as e:
+                if training_args.local_process_index == 0 and (sample_count[0] <= 5 or random.random() < 0.01):
+                    logger.warning_rank0(f"JSON decode error: {str(e)}")
+                    raise ValueError(f"JSON decode error: {str(e)}")
+                error_count[0] += 1
+                return None
+        elif isinstance(sample["output.json"], bytes):
+            json_data = json.loads(sample["output.json"].decode("utf-8"))
+        else:
+            json_data = sample["output.json"]
+        
+        # Ensure the decoded data has the expected structure
+        if not isinstance(json_data, dict):
+            if training_args.local_process_index == 0 and (sample_count[0] <= 5 or random.random() < 0.01):
+                logger.warning_rank0(f"JSON data is not a dictionary: {type(json_data)}")
+                raise ValueError(f"JSON data is not a dictionary: {type(json_data)}")
+            error_count[0] += 1
+            return None
+        
+        # Process images if they exist
+        images_key = dataset_attr.images or "images"
+        if images_key in json_data and isinstance(json_data[images_key], list):
+            # Check if we have binary image data in the sample
+            img_keys = [k for k in sample.keys() if k.startswith("image_") or k.endswith((".jpg", ".png", ".jpeg"))]
+            
+            # Log image keys for debugging
+            if training_args.local_process_index == 0 and sample_count[0] <= 5:
+                logger.info_rank0(f"Sample {sample_count[0]} image keys: {img_keys}")
+                logger.info_rank0(f"Sample {sample_count[0]} JSON images: {json_data[images_key]}")
+            
+            # Create a new list for processed images
+            processed_images = []
+            
+            # Process all found images
+            for img_path in json_data[images_key]:
+                # try:
+                # First, check if the image path is a key in the sample
+                if img_path in sample:
+                    # Image data is directly in the sample
+                    img = Image.open(io.BytesIO(sample[img_path]))
+                    processed_images.append(img)
+                else:
+                    # Try to find the image by its basename or other patterns
+                    img_basename = os.path.basename(img_path)
+                    matching_keys = [k for k in img_keys if img_basename in k or k in img_path]
+                    
+                    if matching_keys:
+                        # Use the first matching key
+                        img_key = matching_keys[0]
+                        if isinstance(sample[img_key], bytes):
+                            img = Image.open(io.BytesIO(sample[img_key]))
+                        else:
+                            img = sample[img_key]  # It's already a PIL image
+                        processed_images.append(img)
+                    else:
+                        # As a last resort, try to load from filesystem
+                        # (this should rarely happen with properly formatted WebDatasets)
+                        try:
+                            img_path_with_dir = os.path.join(data_args.media_dir, img_path)
+                            if os.path.exists(img_path_with_dir):
+                                img = Image.open(img_path_with_dir)
+                                processed_images.append(img)
+                            else:
+                                logger.warning_rank0(f"Could not find image {img_path} in sample or filesystem")
+                                raise ValueError(f"Could not find image {img_path} in sample or filesystem")
+                                # Add None as a placeholder
+                                processed_images.append(None)
+                        except Exception as e:
+                            raise ValueError(f"Failed to load image {img_path} from filesystem: {str(e)}")
+                            logger.warning_rank0(f"Failed to load image {img_path} from filesystem: {str(e)}")
+                            # Add None as a placeholder
+                            processed_images.append(None)
+            json_data[images_key] = processed_images
+        # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/loader.py:(437) {json_data=}")
+        return json_data
+    
+    # Apply the processing function to the WebDataset
+    dataset = wds_dataset.map(
+        process_sample
+    ).batched(
+        # self.args.train_batch_size
+        1 # is this global or per-gpu batch size?
+    ).with_epoch(
+        # I think here is number of batches, since we batch just before?
+        4676 # this is the number of samples per epoch
+    )
+
+    # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/loader.py:(484) {dataset=}")
+    return dataset
+    
+
+def load_shardlistdataset(
+        path: str,
+        dataset_attr: "DatasetAttr",
+        data_args: "DataArguments",
+        training_args: "Seq2SeqTrainingArguments",
+        cache_dir: Optional[str] = None
+    ) -> wids.ShardListDataset:
+    logger.info_rank0(f"Loading WebDataset from pattern: {path}")
+    
+    # Create WebDataset directly
+    # wds_dataset = wds.WebDataset(webdataset_pattern, shardshuffle=True, resampled=True)
+    # we get /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/v0.3correct_top1-{000000..000003}.tar
+    # get all the shards by expansing the { } part
+
     wds_dataset = wids.ShardListDataset(
         path, 
         cache_dir=cache_dir, 
         # cache_size=10, # the number of shards to keep in the cache
         keep=True
     )
+
+
     assert len(wds_dataset) > 0, f"WebDataset has no shards: {path}"
     
-    # We now apply the shuffling with the sampler
-    # And use DistributedChunkedSampler for distributed training
-    # - The converter is called as usual by align_dataset
     
     
     # Sample counter for logging
@@ -187,7 +364,6 @@ def load_webdataset(
         # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/loader.py:(437) {json_data=}")
         return json_data
     
-    # Apply the processing function to the WebDataset
     dataset = wds_dataset.add_transform(process_sample)
 
     # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/loader.py:(484) {dataset=}")
@@ -207,7 +383,10 @@ def _load_single_dataset(
     logger.info_rank0(f"Loading dataset {dataset_attr}...")
     data_path, data_name, data_dir, data_files = None, None, None, None
     
-    if dataset_attr.load_from in ["hf_hub", "ms_hub", "om_hub"]:
+    if dataset_attr.load_from in "webdataset":
+        data_path = dataset_attr.webdataset_pattern
+        data_files = [data_path]
+    elif dataset_attr.load_from in ["hf_hub", "ms_hub", "om_hub"]:
         data_path = dataset_attr.dataset_name
         data_name = dataset_attr.subset
         data_dir = dataset_attr.folder
@@ -276,6 +455,16 @@ def _load_single_dataset(
         # breakpoint() # pass cache dir etc?
         assert len(data_files) == 1, f"WebDataset should have exactly one file pointing to the shards, but got: {data_files}"
         dataset = load_webdataset(
+            data_files[0],
+            dataset_attr,
+            data_args,
+            training_args,
+            cache_dir=model_args.cache_dir,
+        )
+    elif dataset_attr.formatting == "shardlistdataset_sharegpt":
+        # breakpoint() # pass cache dir etc?
+        assert len(data_files) == 1, f"WebDataset should have exactly one file pointing to the shards, but got: {data_files}"
+        dataset = load_shardlistdataset(
             data_files[0],
             dataset_attr,
             data_args,
@@ -486,8 +675,7 @@ def _get_preprocessed_dataset(
         data_args, stage, template, tokenizer, processor, do_generate=(training_args.predict_with_generate and is_eval)
     )
     
-    # Get column names from the first example
-    column_names = list(next(iter(dataset)).keys())
+
     
     kwargs = {}
     if not data_args.streaming:
@@ -547,7 +735,13 @@ def _get_preprocessed_dataset(
                     {k: [v] for k, v in x.items()}
             )
         )
+    elif isinstance(dataset, wds.WebDataset):
+        dataset = dataset.map(
+            dataset_processor.preprocess_dataset,
+        )
     else:
+        # Get column names from the first example
+        column_names = list(next(iter(dataset)).keys())
         dataset = dataset.map(
             dataset_processor.preprocess_dataset,
             batched=True,
@@ -559,7 +753,8 @@ def _get_preprocessed_dataset(
     if training_args.should_log:
         try:
             print("eval example:" if is_eval else "training example:")
-            dataset_processor.print_data_example(next(iter(dataset)))
+            if not (isinstance(dataset, wds.WebDataset) and torch.distributed.is_initialized() and torch.distributed.get_world_size() > 1):
+                dataset_processor.print_data_example(next(iter(dataset)))
         except StopIteration:
             if stage == "pt":
                 raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
