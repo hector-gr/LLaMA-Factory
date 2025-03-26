@@ -94,10 +94,10 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
     def __call__(self, features: Sequence[Dict[str, Any]]) -> Dict[str, "torch.Tensor"]:
         batch_images, batch_videos, batch_audios = [], [], []
         batch_imglens, batch_vidlens, batch_audlens, batch_input_ids = [], [], [], []
-        # Print the number of features
-        print(f"##################################################")
-        print(f"Number of features: {len(features)}")
-        print(f"##################################################")
+        # # Print the number of features
+        # print(f"##################################################")
+        # print(f"Number of features: {len(features)}")
+        # print(f"##################################################")
         # Hacky
         if isinstance(features, dict):
             features = [features]

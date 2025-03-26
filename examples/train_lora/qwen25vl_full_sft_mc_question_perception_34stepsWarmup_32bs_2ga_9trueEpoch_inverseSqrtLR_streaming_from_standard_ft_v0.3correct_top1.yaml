@@ -2,14 +2,14 @@
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
 # model_name_or_path: Qwen/Qwen2.5-VL-7B-Instruct
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/c6adf136ef57b4f6a6d7897c11bd3863bda237d7/
-model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/6e6556e8ce728c7b3e438d75ebf04ec93403dc19/ # -----
+# model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/6e6556e8ce728c7b3e438d75ebf04ec93403dc19/ # -----
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
+model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/models/qwen25_vl-7b_lora_sft/mc_question_perception_test/qwen25vl_lora_sft_mc_question_perception_34stepsWarmup_32bs_4ga_3trueEpoch_cosineLR_loraRank32_streaming_baseline/checkpoint-693
 
 ### method
 stage: sft
 do_train: true
-finetuning_type: lora
-lora_rank: 32
+finetuning_type: full
 deepspeed: examples/deepspeed/ds_z3_config.json
 resume_from_checkpoint: false
 batch_eval_metrics: true
@@ -21,8 +21,8 @@ batch_eval_metrics: true
 
 
 ### dataset
-dataset: mc_question_perception_test_train # mllm_demo,identity  # video: mllm_video_demo
-eval_dataset: mc_question_perception_test_valid_dev_4_samples
+dataset: mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1 # mllm_demo,identity  # video: mllm_video_demo
+# eval_dataset: mc_question_perception_test_train_visual_sketchpad_correct_top1_dev_2_samples
 # tokenized_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/data/raw/PerceptionTest/TokenizedLLaMA-Factory/50_epochs_fps_4_maxlen_768_total_pixels_12845056
 streaming: true
 accelerator_config:
@@ -41,11 +41,8 @@ buffer_size: 2 # maybe per gpu?
 # total_pixels: 12845056 # 16384 * 28 * 28
 # max_pixels: 78400 # 100 * 28 * 28
 # min_pixels: 62720 # 80*28*28
-# video_fps: 4.0 # 2.0 # The frames to sample per second for video inputs.
-video_maxlen: 100000 # The maximum number of sampled frames for video inputs.
 max_pixels: 63504 # 81 * 28 * 28
 min_pixels: 62720 # 80 * 28 * 28
-video_fps: 2
 # max_pixels: 62720 # 80 * 28 * 28
 # min_pixels: 61936 # 79 * 28 * 28
 use_qwen2vl_processor: true
@@ -54,7 +51,8 @@ image_max_pixels: 25000000 # 5000 # i think this is only an upper bound, so sett
 
 ### output
 logging_steps: 5 # 10
-save_steps: 116 # every half epoch 0.5 * 7392 / 32 = 115.5
+# save_steps: 68 # every epoch - 4715 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
+save_steps: 68 # 4645 * 3 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
 plot_loss: true
 # overwrite_output_dir: true
 
@@ -62,28 +60,36 @@ plot_loss: true
 flash_attn: fa2
 #  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
 per_device_train_batch_size: 1 # 1
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 2
 learning_rate: 0.0001
 
-max_steps: 693 # 3 * 7392 / 32
-num_train_epochs: 3
+max_steps: 1224 # 4645 * 3 / 32 = (assuming it ignores gradient accumulation, otherwise we should divide this by 4)
+num_train_epochs: 9
 
 # without split_batches, it fails to concatenate sequences of different lengths
 # split_batches: true # ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
-lr_scheduler_type: cosine
+lr_scheduler_type: inverse_sqrt
 # warmup_ratio: 0.1
 warmup_steps: 34
 bf16: true
 ddp_timeout: 9000 # 180000000
 
 ### eval
-val_size: 0 # 0.01 # Streaming mode should have an integer val size. # If you use a value different than 0, you get: `Cannot specify `val_size` if `eval_dataset` is not None.Cannot specify `val_size` if `eval_dataset` is not None.`
-per_device_eval_batch_size: 1
-eval_strategy: steps
-eval_steps: 100 # 500 # lower for dev
+# val_size: 0 # 0.01 # Streaming mode should have an integer val size. # If you use a value different than 0, you get: `Cannot specify `val_size` if `eval_dataset` is not None.Cannot specify `val_size` if `eval_dataset` is not None.`
+# per_device_eval_batch_size: 1
+# eval_strategy: steps
+# eval_steps: 100 # 500 # lower for dev
 seed: 42
 
 report_to: wandb
-run_name: qwen25vl_lora_sft_mc_question_perception_34stepsWarmup_32bs_4ga_3trueEpoch_cosineLR_loraRank32_streaming_baseline
-output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_lora_sft_mc_question_perception_34stepsWarmup_32bs_4ga_3trueEpoch_cosineLR_loraRank32_streaming_baseline
+# run_name: 50epoch_lr1e-4_bs1_ga16_dsz3_warmup0.1_bs128_augData_4fps # optional
+# output_dir: output/qwen2_vl-7b/perception_test/action_localisation_vtimellm_50_epochs_lr1e-4_bs1_ga16_dsz3_warmup0.1_bs128_augData_4fps # must be given
+# deepspeed: examples/deepspeed/ds_z3_config.json
+# run_name: create_data # optional
+run_name: debug
+output_dir: output/qwen2_vl-7b/mc_question_perception_test/debug
+# run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_v0.3correct_top1
+# output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_v0.3correct_top1
+# run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_from_standard_ft_v0.3correct_top1
+# output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_from_standard_ft_v0.3correct_top1
 ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.

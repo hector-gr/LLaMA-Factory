@@ -1030,7 +1030,7 @@
     }
   },
   "mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1": {
-    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/shards.json",
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/v0.3correct_top1-{000000..000036}.tar",
     "formatting": "webdataset_sharegpt",
     "columns": {
       "messages": "messages",
@@ -1043,8 +1043,93 @@
       "assistant_tag": "assistant"
     }
   },
+  "mc_question_perception_test_train_visual_sketchpad_v1.1correct_top5": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v1.1correct_top5/v1.1correct_top5-{000000..000247}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_train_visual_sketchpad_v2.0gpt_correct_top5_pad": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v2.0gpt_correct_top5_pad/v2.0gpt_correct_top5_pad-{000000..000288}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_train_visual_sketchpad_v2.01gpt_correct_top5_pad": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v2.01gpt_correct_top5_pad/v2.01gpt_correct_top5_pad-{000000..000288}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_train_visual_sketchpad_v2.1_correct_top5_pad": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v2.1_correct_top5_pad/v2.1_correct_top5_pad-{000000..000288}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+
+  "mc_question_perception_test_train_visual_sketchpad_v3.0gpt_correct_top10_pad": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v3.0gpt_correct_top10_pad/v3.0gpt_correct_top10_pad-{000000..000577}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_shardlist": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/shards.json",
+    "formatting": "shardlistdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
   "mc_question_perception_test_train_visual_sketchpad_v0.3correct_top1_dev_128_samples": {
-    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/v0.3correct_top1-{000000..000036}.tar",
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/mc_question_perception_test/v0.3correct_top1/v0.3correct_top1-{000000..000001}.tar",
     "formatting": "webdataset_sharegpt",
     "columns": {
       "messages": "messages",

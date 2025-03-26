@@ -87,6 +87,7 @@ class WebDatasetAdapter(wds.WebDataset):
                 if self.training_args.local_process_index == 0:
                     if self.sample_count <= 3 or random.random() < 0.01:  # Log first 3 samples and ~1% of errors
                         logger.warning_rank0(f"Sample {self.sample_count} is not a dictionary: {type(sample)}")
+                        raise ValueError(f"Sample {self.sample_count} is not a dictionary: {type(sample)}")
                 continue
             
             # Check if sample has required keys for processing

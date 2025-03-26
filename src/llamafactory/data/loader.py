@@ -78,7 +78,11 @@ def load_webdataset(
     # )
     # from https://github.com/webdataset/webdataset/issues/250
     wds_dataset = wds.WebDataset(
-        path, resampled=True
+        path, 
+        resampled=True,
+        nodesplitter=wds.split_by_node,
+        shardshuffle=True,
+        # workersplitter=wds.split_by_worker,
     ).shuffle(
         # 1000
         1000
@@ -169,9 +173,9 @@ def load_webdataset(
             img_keys = [k for k in sample.keys() if k.startswith("image_") or k.endswith((".jpg", ".png", ".jpeg"))]
             
             # Log image keys for debugging
-            if training_args.local_process_index == 0 and sample_count[0] <= 5:
-                logger.info_rank0(f"Sample {sample_count[0]} image keys: {img_keys}")
-                logger.info_rank0(f"Sample {sample_count[0]} JSON images: {json_data[images_key]}")
+            # if training_args.local_process_index == 0 and sample_count[0] <= 5:
+            #     logger.info_rank0(f"Sample {sample_count[0]} image keys: {img_keys}")
+            #     logger.info_rank0(f"Sample {sample_count[0]} JSON images: {json_data[images_key]}")
             
             # Create a new list for processed images
             processed_images = []
@@ -222,12 +226,12 @@ def load_webdataset(
     # Apply the processing function to the WebDataset
     dataset = wds_dataset.map(
         process_sample
-    ).batched(
-        # self.args.train_batch_size
-        1 # is this global or per-gpu batch size?
-    ).with_epoch(
-        # I think here is number of batches, since we batch just before?
-        4676 # this is the number of samples per epoch
+    # ).batched(
+    #     # self.args.train_batch_size
+    #     1 # is this global or per-gpu batch size?
+    # ).with_epoch(
+    #     # I think here is number of batches, since we batch just before?
+    #     4676 # this is the number of samples per epoch
     )
 
     # print(f"in /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/src/llamafactory/data/loader.py:(484) {dataset=}")
@@ -314,9 +318,9 @@ def load_shardlistdataset(
             img_keys = [k for k in sample.keys() if k.startswith("image_") or k.endswith((".jpg", ".png", ".jpeg"))]
             
             # Log image keys for debugging
-            if training_args.local_process_index == 0 and sample_count[0] <= 5:
-                logger.info_rank0(f"Sample {sample_count[0]} image keys: {img_keys}")
-                logger.info_rank0(f"Sample {sample_count[0]} JSON images: {json_data[images_key]}")
+            # if training_args.local_process_index == 0 and sample_count[0] <= 5:
+            #     logger.info_rank0(f"Sample {sample_count[0]} image keys: {img_keys}")
+            #     logger.info_rank0(f"Sample {sample_count[0]} JSON images: {json_data[images_key]}")
             
             # Create a new list for processed images
             processed_images = []

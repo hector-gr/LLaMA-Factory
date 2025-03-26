@@ -1,6 +1,6 @@
 The [dataset_info.json](dataset_info.json) contains all available datasets. If you are using a custom dataset, please **make sure** to add a *dataset description* in `dataset_info.json` and specify `dataset: dataset_name` before training to use it.
 
-Currently we support datasets in **alpaca** and **sharegpt** format.
+Currently we support datasets in **alpaca**, **sharegpt**, and **webdataset** format.
 
 ```json
 "dataset_name": {
@@ -14,6 +14,10 @@ Currently we support datasets in **alpaca** and **sharegpt** format.
   "split": "the name of dataset split to be used. (optional, default: train)",
   "folder": "the name of the folder of the dataset repository on the Hugging Face hub. (optional, default: None)",
   "num_samples": "the number of samples in the dataset to be used. (optional, default: None)",
+  "webdataset_pattern": "Pattern for WebDataset shards (required for webdataset loading)",
+  "webdataset_format": "Format of the WebDataset (e.g., conversation)",
+  "webdataset_image_key": "Key for images in WebDataset (required for custom format)",
+  "webdataset_text_key": "Key for text in WebDataset (required for custom format)",
   "columns (optional)": {
     "prompt": "the column name in the dataset containing the prompts. (default: instruction)",
     "query": "the column name in the dataset containing the queries. (default: input)",
@@ -40,6 +44,59 @@ Currently we support datasets in **alpaca** and **sharegpt** format.
   }
 }
 ```
+
+## WebDataset Format
+
+For datasets in WebDataset format with sharegpt-style conversations, use the following configuration:
+
+```json
+{
+  "dataset_name": {
+    "file_name": "/path/to/dataset/{000000..000003}.tar",
+    "formatting": "webdataset_sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }
+}
+```
+
+The system automatically detects WebDataset patterns in the `file_name` field (containing curly braces and .tar extension) and handles them appropriately. The pattern uses glob syntax to specify multiple tar files:
+
+- `{000000..000003}.tar` matches 000000.tar, 000001.tar, 000002.tar, and 000003.tar
+- `{000000..999999}.tar` matches any 6-digit numbered tar file from 000000.tar to 999999.tar
+
+The WebDataset shards should contain samples with the standard sharegpt format:
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "User message with <image>"
+    },
+    {
+      "role": "assistant",
+      "content": "Assistant response"
+    }
+  ],
+  "images": ["<binary_image_data>"]
+}
+```
+
+Each sample in the WebDataset should be stored with a unique key and the JSON data:
+```
+__key__: "sample_001"
+json: "{\"messages\": [...], \"images\": [...]}"
+```
+
+You can use the provided `scripts/convert_to_webdataset.py` script to convert your data to this format.
 
 ## Alpaca Format
 

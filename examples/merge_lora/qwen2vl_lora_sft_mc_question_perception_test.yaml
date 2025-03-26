@@ -2,6 +2,7 @@
 
 ### model
 # model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
+# model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
 model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/huggingface/hub/models--Qwen--Qwen2-VL-7B-Instruct/snapshots/51c47430f97dd7c74aa1fa6825e68a813478097f
 # adapter_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/mc_question_perception_test/3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens_loraRank16/checkpoint-600
 adapter_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen2_vl-7b/mc_question_perception_test/3epoch_lr1e-4_constantLR_bs1_ga4_dsz3_warmup0.1_bs128_streaming_100imageTokens_loraRank16/checkpoint-600

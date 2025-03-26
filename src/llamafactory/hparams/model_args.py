@@ -345,7 +345,7 @@ class ModelArguments(QuantizationArguments, ProcessorArguments, ExportArguments,
 
     def __post_init__(self):
         if self.model_name_or_path is None:
-            raise ValueError("Please provide `model_name_or_path`.")
+            raise ValueError(f"Please provide `model_name_or_path`. currently, {self=}")
 
         if self.split_special_tokens and self.use_fast_tokenizer:
             raise ValueError("`split_special_tokens` is only supported for slow tokenizers.")

@@ -24,6 +24,8 @@ import numpy as np
 import torch
 from transformers import Seq2SeqTrainer
 from typing_extensions import override
+import wids
+import webdataset as wds
 
 from ...extras import logging
 from ...extras.constants import IGNORE_INDEX
@@ -90,10 +92,61 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
     @override
     def _get_train_sampler(self) -> Optional["torch.utils.data.Sampler"]:
-        if self.finetuning_args.disable_shuffling:
+        if isinstance(self.train_dataset, wids.ShardListDataset):
+            # TODO: check chunkise from dasaset shard size e.g. chunksize= min(2000, shard_size) or even configurable
+            sampler = wids.DistributedChunkedSampler(
+                self.train_dataset,
+                chunksize=128,
+                # chunksize=128*200,
+                shuffle=True,
+                seed=self.args.seed
+            )
+            # trainer._get_train_sampler = lambda: sampler
+            return sampler
+
+        elif hasattr(self.finetuning_args, 'disable_shuffling') and self.finetuning_args.disable_shuffling:
             return torch.utils.data.SequentialSampler(self.train_dataset)
 
         return super()._get_train_sampler()
+
+    @override
+    def get_train_dataloader(self) -> "torch.utils.data.DataLoader":
+        if isinstance(self.train_dataset, wds.WebDataset):
+            # based on https://github.com/webdataset/webdataset/issues/324#issuecomment-1951972673
+            train_dataset = self.train_dataset
+            data_collator = self.data_collator
+            dataloader = wds.WebLoader(
+                train_dataset,
+                batch_size=None,
+                shuffle=False,
+                num_workers=self.args.dataloader_num_workers,
+                persistent_workers=self.args.dataloader_num_workers > 0,
+            )
+            print(f"{self.args.dataloader_num_workers=}")
+            dataloader = dataloader.map(self.data_collator)#.unbatched().shuffle(1000).batched(2)
+            # another solution also batches here https://github.com/webdataset/webdataset/issues/250#issuecomment-1449384288
+            return self.accelerator.prepare(dataloader)
+        return super().get_train_dataloader()
+
+    @override
+    def get_eval_dataloader(self) -> "torch.utils.data.DataLoader":
+        if isinstance(self.eval_dataset, wds.WebDataset):
+            # based on https://github.com/webdataset/webdataset/issues/324#issuecomment-1951972673
+            eval_dataset = self.eval_dataset
+            data_collator = self.data_collator
+            dataloader = wds.WebLoader(
+                eval_dataset,
+                batch_size=None,
+                shuffle=False,
+                num_workers=self.args.dataloader_num_workers,
+                persistent_workers=self.args.dataloader_num_workers > 0,
+            )
+            print(f"{self.args.dataloader_num_workers=}")
+            dataloader = dataloader.map(self.data_collator)#.unbatched().shuffle(1000).batched(2)
+            # another solution also batches here https://github.com/webdataset/webdataset/issues/250#issuecomment-1449384288
+            return self.accelerator.prepare(dataloader)
+        return super().get_eval_dataloader()
+
 
     @override
     def prediction_step(

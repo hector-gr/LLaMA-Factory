@@ -1162,7 +1162,7 @@ class Qwen2vlPlugin(BasePlugin):
             content = message["content"]
             while IMAGE_PLACEHOLDER in content:
                 if num_image_tokens >= len(image_grid_thw):
-                    raise ValueError(f"`len(images)` is less than the number of {IMAGE_PLACEHOLDER} tokens.")
+                    raise ValueError(f"`len(images)` ({len(image_grid_thw)}) is less than the number of {IMAGE_PLACEHOLDER} tokens ({num_image_tokens})")
 
                 image_seqlen = image_grid_thw[num_image_tokens].prod() // merge_length if self.expand_mm_tokens else 1
                 content = content.replace(

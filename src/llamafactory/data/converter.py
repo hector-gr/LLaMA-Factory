@@ -133,7 +133,7 @@ class SharegptDatasetConverter(DatasetConverter):
         
         logger = logging.get_logger(__name__)
         assert isinstance(example, dict), f"example is not a dict: {type(example)=}"
-        logger.info_rank0(f"SharegptDatasetConverter example keys: {list(example.keys())}")
+        # logger.info_rank0(f"SharegptDatasetConverter example keys: {list(example.keys())}")
         
         # Check if the messages key is missing
         if self.dataset_attr.messages not in example:
@@ -243,7 +243,7 @@ class WebDatasetSharegptConverter(SharegptDatasetConverter):
     def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
         # Debug logging
         logger = logging.get_logger(__name__)
-        logger.info_rank0(f"WebDatasetSharegptConverter example keys: {list(example.keys())}")
+        # logger.info_rank0(f"WebDatasetSharegptConverter example keys: {list(example.keys())}")
         
         # Check if this is a dummy example (only has __dummy__ key)
         if set(example.keys()) == {"__dummy__"}:
@@ -258,7 +258,7 @@ class WebDatasetSharegptConverter(SharegptDatasetConverter):
                 "_audios": [],
             }
         
-        logger.info_rank0(f"WebDatasetSharegptConverter dataset_attr.messages: {self.dataset_attr.messages}")
+        # logger.info_rank0(f"WebDatasetSharegptConverter dataset_attr.messages: {self.dataset_attr.messages}")
         
         # Check if we need to map keys
         if self.dataset_attr.messages and self.dataset_attr.messages not in example:
@@ -302,7 +302,7 @@ class ShardListDatasetSharegptConverter(SharegptDatasetConverter):
     def __call__(self, example: Dict[str, Any]) -> Dict[str, Any]:
         # Debug logging
         logger = logging.get_logger(__name__)
-        logger.info_rank0(f"ShardListDatasetSharegptConverter example keys: {list(example.keys())}")
+        # logger.info_rank0(f"ShardListDatasetSharegptConverter example keys: {list(example.keys())}")
         
         # Check if this is a dummy example (only has __dummy__ key)
         if set(example.keys()) == {"__dummy__"}:
@@ -317,7 +317,7 @@ class ShardListDatasetSharegptConverter(SharegptDatasetConverter):
                 "_audios": [],
             }
         
-        logger.info_rank0(f"ShardListDatasetSharegptConverter dataset_attr.messages: {self.dataset_attr.messages}")
+        # logger.info_rank0(f"ShardListDatasetSharegptConverter dataset_attr.messages: {self.dataset_attr.messages}")
         
         # Check if we need to map keys
         if self.dataset_attr.messages and self.dataset_attr.messages not in example:

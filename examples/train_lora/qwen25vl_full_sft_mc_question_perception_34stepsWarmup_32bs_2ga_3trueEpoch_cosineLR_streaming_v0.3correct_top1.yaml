@@ -12,7 +12,7 @@ finetuning_type: full
 deepspeed: examples/deepspeed/ds_z3_config.json
 resume_from_checkpoint: false
 batch_eval_metrics: true
-cache_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/tmp/tmp_v0.3correct_top1_16_gpu
+# cache_dir: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/tmp/tmp_v0.3correct_top1_16_gpu
 # compute_iou: true
 
 # model_name_or_path: /pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/LLaMA-Factory/output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_inverseSqrtLR_streaming_v0.2correct_top1/checkpoint-136
@@ -31,7 +31,8 @@ accelerator_config:
 template: qwen2_vl
 cutoff_len: 32768 #1024
 overwrite_cache: false
-preprocessing_num_workers: null # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
+# preprocessing_num_workers: null # 4 gpus * 8 cpus per gpu = 32 vCPUs # 16 # TODO: tune to max GPU usage without getting CPU throttled # for dev / debug 1
+preprocessing_num_workers: null
 preprocessing_batch_size: 16 # 2 # 1 # The number of examples in one group in pre-processing.
 # preprocessing_batch_size: 2 # debugging
 buffer_size: 1 # maybe per gpu?
@@ -61,6 +62,7 @@ plot_loss: true
 flash_attn: fa2
 #  ValueError: To use a `DataLoader` in `split_batches` mode, the batch size (2) needs to be a round multiple of the number of processes (4).
 per_device_train_batch_size: 1 # 1
+# gradient_accumulation_steps: 4
 gradient_accumulation_steps: 2
 learning_rate: 0.0001
 
@@ -79,7 +81,7 @@ ddp_timeout: 9000 # 180000000
 val_size: 0 # 0.01 # Streaming mode should have an integer val size. # If you use a value different than 0, you get: `Cannot specify `val_size` if `eval_dataset` is not None.Cannot specify `val_size` if `eval_dataset` is not None.`
 per_device_eval_batch_size: 1
 eval_strategy: steps
-eval_steps: 100 # 500 # lower for dev
+eval_steps: 500 # 500 # lower for dev
 # eval_steps: 1 # debugging
 seed: 42
 
@@ -90,6 +92,8 @@ report_to: wandb
 # run_name: debug
 # run_name: debug
 # output_dir: output/qwen2_vl-7b/perception_test/create_data
-run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_cosineLR_streaming_v0.3correct_top1
-output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_9trueEpoch_cosineLR_streaming_v0.3correct_top1
+run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_3trueEpoch_cosineLR_streaming_withEpochResampled_v0.3correct_top1
+output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_2ga_3trueEpoch_cosineLR_streaming_withEpochResampled_v0.3correct_top1
+# run_name: qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_4ga_9trueEpoch_cosineLR_streaming_v0.3correct_top1
+# output_dir: output/qwen25_vl-7b/mc_question_perception_test/qwen25vl_full_sft_mc_question_perception_34stepsWarmup_32bs_4ga_9trueEpoch_cosineLR_streaming_v0.3correct_top1
 ddp_find_unused_parameters: false # `ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.
