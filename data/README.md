@@ -71,10 +71,34 @@ For datasets in WebDataset format with sharegpt-style conversations, use the fol
 }
 ```
 
+For WebDataset format with preference learning and multi-modal support (vision), use:
+
+```json
+{
+  "dataset_name": {
+    "file_name": "/path/to/dataset/{000000..000003}.tar",
+    "formatting": "webdataset_sharegptv",
+    "columns": {
+      "conversations": {"messages": "messages", "images": "images"},
+      "chosen": {"messages": "messages", "images": "images"},
+      "rejected": {"messages": "messages", "images": "images"}
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }
+}
+```
+
 The system automatically detects WebDataset patterns in the `file_name` field (containing curly braces and .tar extension) and handles them appropriately. The pattern uses glob syntax to specify multiple tar files:
 
 - `{000000..000003}.tar` matches 000000.tar, 000001.tar, 000002.tar, and 000003.tar
 - `{000000..999999}.tar` matches any 6-digit numbered tar file from 000000.tar to 999999.tar
+
+### WebDataset ShareGPT Format
 
 The WebDataset shards should contain samples with the standard sharegpt format:
 ```json
@@ -93,10 +117,45 @@ The WebDataset shards should contain samples with the standard sharegpt format:
 }
 ```
 
+### WebDataset ShareGPT-V (Preference Learning) Format
+
+For preference learning with multi-modal support, the WebDataset shards should contain samples with the following format:
+```json
+{
+  "conversations": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "User message with <image>"
+      }
+    ],
+    "images": ["<binary_image_data>"]
+  },
+  "chosen": {
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Better assistant response"
+      }
+    ],
+    "images": ["<binary_image_data>"]
+  },
+  "rejected": {
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Worse assistant response"
+      }
+    ],
+    "images": ["<binary_image_data>"]
+  }
+}
+```
+
 Each sample in the WebDataset should be stored with a unique key and the JSON data:
 ```
 __key__: "sample_001"
-json: "{\"messages\": [...], \"images\": [...]}"
+json: "{\"conversations\": {...}, \"chosen\": {...}, \"rejected\": {...}}"
 ```
 
 You can use the provided `scripts/convert_to_webdataset.py` script to convert your data to this format.
