@@ -227,9 +227,134 @@ class SharegptDatasetConverter(DatasetConverter):
         return output
 
 
+@dataclass
+class WebDatasetSharegptvDatasetConverter(DatasetConverter):
+    def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
+        tag_mapping = {
+            self.dataset_attr.user_tag: Role.USER.value,
+            self.dataset_attr.assistant_tag: Role.ASSISTANT.value,
+            self.dataset_attr.observation_tag: Role.OBSERVATION.value,
+            self.dataset_attr.function_tag: Role.FUNCTION.value,
+            self.dataset_attr.system_tag: Role.SYSTEM.value,
+        }
+        odd_tags = (self.dataset_attr.user_tag, self.dataset_attr.observation_tag)
+        even_tags = (self.dataset_attr.assistant_tag, self.dataset_attr.function_tag)
+        accept_tags = (odd_tags, even_tags)
+
+        # Process conversations
+        conversations_data = example.get("conversations", {})
+        messages = conversations_data.get("messages", [])
+        conversation_images = conversations_data.get("images", [])
+
+        # Handle system message
+        if (
+            self.dataset_attr.system_tag
+            and len(messages) != 0
+            and messages[0][self.dataset_attr.role_tag] == self.dataset_attr.system_tag
+        ):
+            system = messages[0][self.dataset_attr.content_tag]
+            messages = messages[1:]
+        else:
+            system = example[self.dataset_attr.system] if self.dataset_attr.system else ""
+
+        # Process conversation messages
+        aligned_messages = []
+        broken_data = False
+        for turn_idx, message in enumerate(messages):
+            if message[self.dataset_attr.role_tag] not in accept_tags[turn_idx % 2]:
+                logger.warning_rank0(f"Invalid role tag in {messages}.")
+                broken_data = True
+                break
+
+            aligned_messages.append(
+                {
+                    "role": tag_mapping[message[self.dataset_attr.role_tag]],
+                    "content": message[self.dataset_attr.content_tag],
+                }
+            )
+
+        # For preference learning, conversations should end with user message (odd length)
+        if len(aligned_messages) % 2 != 1:
+            logger.warning_rank0(f"Invalid message count in conversations: {len(aligned_messages)}. Should be odd for preference learning.")
+            broken_data = True
+
+        if broken_data:
+            logger.warning_rank0("Skipping this abnormal example.")
+            prompt, response = [], []
+            all_images = None
+        else:
+            # For preference learning, conversations are the prompt
+            prompt = aligned_messages
+
+            # Process chosen response
+            chosen_data = example.get("chosen", {})
+            chosen_messages = chosen_data.get("messages", [])
+            chosen_images = chosen_data.get("images", [])
+            
+            # Process rejected response
+            rejected_data = example.get("rejected", {})
+            rejected_messages = rejected_data.get("messages", [])
+            rejected_images = rejected_data.get("images", [])
+
+            # Convert chosen and rejected messages
+            chosen_response = []
+            rejected_response = []
+            
+            for message in chosen_messages:
+                # Check if this is a valid assistant/function response
+                if message[self.dataset_attr.role_tag] not in even_tags:
+                    logger.warning_rank0(f"Invalid role tag in chosen: {message[self.dataset_attr.role_tag]}")
+                    broken_data = True
+                    break
+                chosen_response.append({
+                    "role": tag_mapping[message[self.dataset_attr.role_tag]],
+                    "content": message[self.dataset_attr.content_tag],
+                })
+            
+            for message in rejected_messages:
+                # Check if this is a valid assistant/function response
+                if message[self.dataset_attr.role_tag] not in even_tags:
+                    logger.warning_rank0(f"Invalid role tag in rejected: {message[self.dataset_attr.role_tag]}")
+                    broken_data = True
+                    break
+                rejected_response.append({
+                    "role": tag_mapping[message[self.dataset_attr.role_tag]],
+                    "content": message[self.dataset_attr.content_tag],
+                })
+
+            if broken_data:
+                response = []
+                all_images = None
+            else:
+                # For preference learning: first chosen responses, then rejected responses
+                response = chosen_response + rejected_response
+
+            # Combine all images: conversation images, then chosen images, then rejected images
+            all_images = []
+            if conversation_images:
+                all_images.extend(conversation_images)
+            if chosen_images:
+                all_images.extend(chosen_images) 
+            if rejected_images:
+                all_images.extend(rejected_images)
+
+        output = {
+            "_prompt": prompt,
+            "_response": response,
+            "_system": system,
+            "_tools": example[self.dataset_attr.tools] if self.dataset_attr.tools else "",
+            "_images": self._find_medias(all_images) if all_images else None,
+            "_videos": self._find_medias(example[self.dataset_attr.videos]) if self.dataset_attr.videos else None,
+            "_audios": self._find_medias(example[self.dataset_attr.audios]) if self.dataset_attr.audios else None,
+        }
+        return output
+
+
 DATASET_CONVERTERS = {
     "alpaca": AlpacaDatasetConverter,
     "sharegpt": SharegptDatasetConverter,
+    "webdataset_sharegpt": SharegptDatasetConverter,
+    "webdataset_sharegptv": WebDatasetSharegptvDatasetConverter,
 }
 
 

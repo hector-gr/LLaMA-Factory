@@ -1219,6 +1219,21 @@
       "user_tag": "user",
       "assistant_tag": "assistant"
     }
+  },
+  "oe_question_dude-preference_dataset_o3-val": {
+    "file_name": "/pfss/mlde/workspaces/mlde_wsp_Rohrbach/users/hg52wuli/workspace/VisualSketchpad/llama_factory/oe_question_dude/preference_dataset_o3/preference_dataset_o3-{000000..000001}.tar",
+    "formatting": "webdataset_sharegptv",
+    "columns": {
+      "conversations": {"messages": "messages", "images": "images"},
+      "chosen": {"messages": "messages", "images": "images"},
+      "rejected": {"messages": "messages", "images": "images"}
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
   }
 }
 

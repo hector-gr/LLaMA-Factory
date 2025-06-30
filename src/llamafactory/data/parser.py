@@ -30,7 +30,7 @@ class DatasetAttr:
     # basic configs
     load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file", "webdataset"]
     dataset_name: str
-    formatting: Literal["alpaca", "sharegpt", "webdataset_sharegpt"] = "alpaca"
+    formatting: Literal["alpaca", "sharegpt", "webdataset_sharegpt", "webdataset_sharegptv"] = "alpaca"
     ranking: bool = False
     # extra configs
     subset: Optional[str] = None
@@ -39,6 +39,7 @@ class DatasetAttr:
     num_samples: Optional[int] = None
     # webdataset configs
     webdataset_pattern: Optional[str] = None  # Pattern for WebDataset shards
+    columns_config: Optional[dict[str, Any]] = None  # For nested column structures like webdataset_sharegptv
     # common columns
     system: Optional[str] = None
     tools: Optional[str] = None
@@ -80,10 +81,19 @@ class DatasetAttr:
         self.set_attr("num_samples", attr)
 
         if "columns" in attr:
-            column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
-            column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
-            for column_name in column_names:
-                self.set_attr(column_name, attr["columns"])
+            # Handle both flat and nested column structures
+            if self.formatting == "webdataset_sharegptv":
+                # For webdataset_sharegptv, store the entire nested columns structure
+                # The converter will handle the nested structure directly
+                setattr(self, "columns_config", attr["columns"])
+                # webdataset_sharegptv is for preference learning, so set ranking=True
+                self.ranking = True
+            else:
+                # For other formats, handle flat column mappings
+                column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
+                column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
+                for column_name in column_names:
+                    self.set_attr(column_name, attr["columns"])
 
         if "tags" in attr:
             tag_names = ["role_tag", "content_tag"]

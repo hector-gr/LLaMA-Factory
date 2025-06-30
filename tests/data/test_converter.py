@@ -58,3 +58,55 @@ def test_sharegpt_converter():
         "_videos": None,
         "_audios": None,
     }
+
+
+def test_webdataset_sharegptv_converter():
+    dataset_attr = DatasetAttr("webdataset", "test-preference-dataset")
+    dataset_attr.formatting = "webdataset_sharegptv"
+    dataset_attr.ranking = True
+    data_args = DataArguments()
+    
+    example = {
+        "conversations": {
+            "messages": [
+                {"role": "user", "content": "What color is the bucket in the image?"}
+            ],
+            "images": ["image_0000.jpg", "image_0001.jpg"]
+        },
+        "chosen": {
+            "messages": [
+                {"role": "assistant", "content": "The bucket in the image is white."}
+            ],
+            "images": ["image_0002_chosen.jpg", "image_0003_chosen.jpg"]
+        },
+        "rejected": {
+            "messages": [
+                {"role": "assistant", "content": "I cannot clearly see the buckets in the image."}
+            ],
+            "images": ["image_0002_rejected.jpg"]
+        }
+    }
+    
+    dataset_converter = get_dataset_converter("webdataset_sharegptv", dataset_attr, data_args)
+    result = dataset_converter(example)
+    
+    # Check the structure
+    assert len(result["_prompt"]) == 1
+    assert result["_prompt"][0]["role"] == Role.USER.value
+    assert result["_prompt"][0]["content"] == "What color is the bucket in the image?"
+    
+    # Check responses (chosen + rejected)
+    assert len(result["_response"]) == 2
+    assert result["_response"][0]["role"] == Role.ASSISTANT.value
+    assert result["_response"][0]["content"] == "The bucket in the image is white."
+    assert result["_response"][1]["role"] == Role.ASSISTANT.value
+    assert result["_response"][1]["content"] == "I cannot clearly see the buckets in the image."
+    
+    # Check images are combined
+    assert len(result["_images"]) == 5  # 2 from conversations + 2 from chosen + 1 from rejected
+    assert result["_images"] == ["image_0000.jpg", "image_0001.jpg", "image_0002_chosen.jpg", "image_0003_chosen.jpg", "image_0002_rejected.jpg"]
+    
+    assert result["_system"] == ""
+    assert result["_tools"] == ""
+    assert result["_videos"] is None
+    assert result["_audios"] is None
