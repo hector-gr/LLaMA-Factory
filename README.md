@@ -623,6 +623,8 @@ Please refer to `data/example_dataset` for checking the details about the format
 
 You can also use **[Easy Dataset](https://github.com/ConardLi/easy-dataset)** or **[GraphGen](https://github.com/open-sciencelab/GraphGen)** to create synthetic data for fine-tuning.
 
+You can also use **[Easy Dataset](https://github.com/ConardLi/easy-dataset)** or **[GraphGen](https://github.com/open-sciencelab/GraphGen)** to create synthetic data for fine-tuning.
+
 ### Quickstart
 
 ### Dependence Installation (optional)

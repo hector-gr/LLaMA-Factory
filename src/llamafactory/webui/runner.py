@@ -266,6 +266,13 @@ class Runner:
             args["apollo_scale"] = get("train.apollo_scale")
             args["apollo_target"] = get("train.apollo_target")
 
+        # apollo config
+        if args["use_apollo"]:
+            args["apollo_rank"] = get("train.apollo_rank")
+            args["apollo_update_interval"] = get("train.apollo_update_interval")
+            args["apollo_scale"] = get("train.apollo_scale")
+            args["apollo_target"] = get("train.apollo_target")
+
         # badam config
         if args["use_badam"]:
             args["badam_mode"] = get("train.badam_mode")

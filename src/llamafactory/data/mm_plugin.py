@@ -832,7 +832,16 @@ class LlavaNextPlugin(BasePlugin):
                 content = content.replace(IMAGE_PLACEHOLDER, "{{image}}" * image_seqlen, 1)
                 num_image_tokens += 1
 
-            message["content"] = content.replace("{{image}}", self.image_token)
+            while VIDEO_PLACEHOLDER in content:
+                current_patch_index = video_patch_indices[num_video_tokens - 1] if num_video_tokens > 0 else 0
+                end_patch_index = video_patch_indices[num_video_tokens]
+                num_patches = list(video_num_patches[current_patch_index:end_patch_index])
+                video_replaced_prompt = "\n".join(
+                    f"Frame{i + 1}: <img>{'<IMG_CONTEXT>' * image_seqlen * num_patches[i]}</img>"
+                    for i in range(len(num_patches))
+                )
+                content = content.replace(VIDEO_PLACEHOLDER, video_replaced_prompt, 1)
+                num_video_tokens += 1
 
         return messages
 
@@ -987,8 +996,7 @@ class MiniCPMVPlugin(BasePlugin):
             use_image_id = False
             mm_inputs = self._get_mm_inputs([], videos, [], processor)
         else:
-            max_slice_nums = image_processor.max_slice_nums
-            use_image_id = image_processor.use_image_id
+            image_seqlen = 1
 
         for i, message in enumerate(messages):
             content = message["content"]
@@ -1055,6 +1063,9 @@ class MiniCPMVPlugin(BasePlugin):
 
         return messages
 
+
+@dataclass
+class LlavaNextVideoPlugin(BasePlugin):
     @override
     def get_mm_inputs(
         self,

@@ -591,6 +591,53 @@ register_model_group(
 
 register_model_group(
     models={
+        "DeepSeek-R1-1.5B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        },
+        "DeepSeek-R1-7B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+        },
+        "DeepSeek-R1-8B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        },
+        "DeepSeek-R1-14B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+        },
+        "DeepSeek-R1-32B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+        },
+        "DeepSeek-R1-70B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+        },
+        "DeepSeek-R1-671B-Chat-Zero": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-Zero",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-Zero",
+        },
+        "DeepSeek-R1-671B-Chat": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1",
+        },
+        "DeepSeek-R1-0528-8B-Distill": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+        },
+        "DeepSeek-R1-0528-671B-Chat": {
+            DownloadSource.DEFAULT: "deepseek-ai/DeepSeek-R1-0528",
+            DownloadSource.MODELSCOPE: "deepseek-ai/DeepSeek-R1-0528",
+        },
+    },
+    template="deepseekr1",
+)
+
+
+register_model_group(
+    models={
         "EXAONE-3.0-7.8B-Instruct": {
             DownloadSource.DEFAULT: "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct",
         },
@@ -831,6 +878,33 @@ register_model_group(
         },
     },
     template="glm4",
+)
+
+
+register_model_group(
+    models={
+        "GLM-4.1V-9B-Thinking": {
+            DownloadSource.DEFAULT: "THUDM/GLM-4.1V-9B-Thinking",
+            DownloadSource.MODELSCOPE: "ZhipuAI/GLM-4.1V-9B-Thinking",
+        }
+    },
+    template="glm4v",
+    multimodal=True,
+)
+
+
+register_model_group(
+    models={
+        "GLM-Z1-0414-9B-Chat": {
+            DownloadSource.DEFAULT: "THUDM/GLM-Z1-9B-0414",
+            DownloadSource.MODELSCOPE: "ZhipuAI/GLM-Z1-9B-0414",
+        },
+        "GLM-Z1-0414-32B-Chat": {
+            DownloadSource.DEFAULT: "THUDM/GLM-Z1-32B-0414",
+            DownloadSource.MODELSCOPE: "ZhipuAI/GLM-Z1-32B-0414",
+        },
+    },
+    template="glmz1",
 )
 
 

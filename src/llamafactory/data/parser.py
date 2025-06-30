@@ -81,19 +81,10 @@ class DatasetAttr:
         self.set_attr("num_samples", attr)
 
         if "columns" in attr:
-            # Handle both flat and nested column structures
-            if self.formatting == "webdataset_sharegptv":
-                # For webdataset_sharegptv, store the entire nested columns structure
-                # The converter will handle the nested structure directly
-                setattr(self, "columns_config", attr["columns"])
-                # webdataset_sharegptv is for preference learning, so set ranking=True
-                self.ranking = True
-            else:
-                # For other formats, handle flat column mappings
-                column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
-                column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
-                for column_name in column_names:
-                    self.set_attr(column_name, attr["columns"])
+            column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
+            column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
+            for column_name in column_names:
+                self.set_attr(column_name, attr["columns"])
 
         if "tags" in attr:
             tag_names = ["role_tag", "content_tag"]

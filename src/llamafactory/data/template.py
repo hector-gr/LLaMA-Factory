@@ -455,6 +455,34 @@ class ReasoningTemplate(Template):
 
 TEMPLATES: dict[str, "Template"] = {}
 
+@dataclass
+class ReasoningTemplate(Template):
+    r"""A template that add thought to assistant message."""
+
+    @override
+    def encode_oneturn(
+        self,
+        tokenizer: "PreTrainedTokenizer",
+        messages: list[dict[str, str]],
+        system: Optional[str] = None,
+        tools: Optional[str] = None,
+    ) -> tuple[list[int], list[int]]:
+        messages = deepcopy(messages)
+        for i in range(1, len(messages) - 2, 2):
+            messages[i]["content"] = self.remove_thought(messages[i]["content"])
+
+        if self.enable_thinking is False:  # remove all cot
+            messages[-1]["content"] = self.remove_thought(messages[-1]["content"])
+
+        prompt_ids, response_ids = super().encode_oneturn(tokenizer, messages, system, tools)
+        if (
+            self.thought_words[0] not in messages[-1]["content"]
+            and self.thought_words[1] not in messages[-1]["content"]
+        ):  # add empty cot
+            if not self.enable_thinking:  # do not compute loss
+                prompt_ids += self.get_thought_word_ids(tokenizer)
+            else:  # do compute loss
+                response_ids = self.get_thought_word_ids(tokenizer) + response_ids
 
 def register_template(
     name: str,
