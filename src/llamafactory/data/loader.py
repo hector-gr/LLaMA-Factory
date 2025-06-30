@@ -13,23 +13,16 @@
 # limitations under the License.
 
 import os
-import sys
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Sequence, Union
-import json
+from typing import TYPE_CHECKING, Literal, Optional, Union
+
 import numpy as np
-from datasets import DatasetDict, load_dataset, load_from_disk
-import webdataset as wds
-import wids
-from PIL import Image
-import io
-import random
-import torch
+from datasets import Dataset, load_dataset, load_from_disk
 
 from ..extras import logging
 from ..extras.constants import FILEEXT2TYPE
 from ..extras.misc import check_version, has_tokenized_data
-from .converter import align_dataset, get_dataset_converter
-from .data_utils import merge_dataset, split_dataset
+from .converter import align_dataset
+from .data_utils import get_dataset_module, merge_dataset, read_cloud_json, split_dataset
 from .parser import get_dataset_list
 from .processor import (
     FeedbackDatasetProcessor,
@@ -39,7 +32,6 @@ from .processor import (
     SupervisedDatasetProcessor,
     UnsupervisedDatasetProcessor,
 )
-from .webdataset_adapter import WebDatasetAdapter
 
 
 if TYPE_CHECKING:
@@ -381,9 +373,7 @@ def _load_single_dataset(
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
 ) -> Union["Dataset", "IterableDataset"]:
-    r"""
-    Loads a single dataset and aligns it to the standard format.
-    """
+    r"""Load a single dataset and aligns it to the standard format."""
     logger.info_rank0(f"Loading dataset {dataset_attr}...")
     data_path, data_name, data_dir, data_files = None, None, None, None
     
@@ -399,6 +389,9 @@ def _load_single_dataset(
         data_path = os.path.join(data_args.dataset_dir, dataset_attr.dataset_name)
         data_name = dataset_attr.subset
         data_dir = dataset_attr.folder
+
+    elif dataset_attr.load_from == "cloud_file":
+        data_path = dataset_attr.dataset_name
 
     elif dataset_attr.load_from == "file":
         data_files = []
@@ -455,26 +448,8 @@ def _load_single_dataset(
             token=model_args.om_hub_token,
             streaming=data_args.streaming,
         )
-    elif dataset_attr.formatting == "webdataset_sharegpt":
-        # breakpoint() # pass cache dir etc?
-        assert len(data_files) == 1, f"WebDataset should have exactly one file pointing to the shards, but got: {data_files}"
-        dataset = load_webdataset(
-            data_files[0],
-            dataset_attr,
-            data_args,
-            training_args,
-            cache_dir=model_args.cache_dir,
-        )
-    elif dataset_attr.formatting == "shardlistdataset_sharegpt":
-        # breakpoint() # pass cache dir etc?
-        assert len(data_files) == 1, f"WebDataset should have exactly one file pointing to the shards, but got: {data_files}"
-        dataset = load_shardlistdataset(
-            data_files[0],
-            dataset_attr,
-            data_args,
-            training_args,
-            cache_dir=model_args.cache_dir,
-        )
+    elif dataset_attr.load_from == "cloud_file":
+        dataset = Dataset.from_list(read_cloud_json(data_path), split=dataset_attr.split)
     else:
         dataset = load_dataset(
             path=data_path,
@@ -484,10 +459,12 @@ def _load_single_dataset(
             split=dataset_attr.split,
             cache_dir=model_args.cache_dir,
             token=model_args.hf_hub_token,
-            streaming=data_args.streaming,
             num_proc=data_args.preprocessing_num_workers,
             trust_remote_code=model_args.trust_remote_code,
+            streaming=data_args.streaming and dataset_attr.load_from != "file",
         )
+        if data_args.streaming and dataset_attr.load_from == "file":
+            dataset = dataset.to_iterable_dataset(num_shards=training_args.dataloader_num_workers)
 
     if dataset_attr.num_samples is not None and not data_args.streaming:
         target_num = dataset_attr.num_samples
@@ -509,16 +486,14 @@ def _load_single_dataset(
 
 
 def _get_merged_dataset(
-    dataset_names: Optional[Sequence[str]],
+    dataset_names: Optional[list[str]],
     model_args: "ModelArguments",
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     stage: Literal["pt", "sft", "rm", "ppo", "kto"],
-    merge: bool = True,
-) -> Optional[Union["Dataset", "IterableDataset", Dict[str, "Dataset"]]]:
-    r"""
-    Returns the merged datasets in the standard format.
-    """
+    return_dict: bool = False,
+) -> Optional[Union["Dataset", "IterableDataset", dict[str, "Dataset"]]]:
+    r"""Return the merged datasets in the standard format."""
     if dataset_names is None:
         return None
 
@@ -528,33 +503,11 @@ def _get_merged_dataset(
             raise ValueError("The dataset is not applicable in the current training stage.")
 
         datasets[dataset_name] = _load_single_dataset(dataset_attr, model_args, data_args, training_args)
-        
-        # Check if we have a WebDataset
-        if isinstance(datasets[dataset_name], wds.WebDataset):
-            logger.info_rank0(f"Dataset {dataset_name} is a WebDataset")
-            # Try to get shard information
-            try:
-                if hasattr(datasets[dataset_name], "pipeline") and hasattr(datasets[dataset_name].pipeline[0], "urls"):
-                    urls = datasets[dataset_name].pipeline[0].urls
-                    logger.info_rank0(f"WebDataset shards: {len(urls)} shards found")
-                    if len(urls) > 0:
-                        logger.info_rank0(f"First few shards: {urls[:5]}")
-            except Exception as e:
-                logger.info_rank0(f"Error getting shard information: {str(e)}")
-    
-    if merge:
-        # Check if any dataset is a WebDataset
-        has_webdataset = any(isinstance(ds, wds.WebDataset) for ds in datasets.values())
-        if has_webdataset:
-            logger.info_rank0("Cannot merge WebDataset with other datasets, returning the first one")
-            # Return the first WebDataset
-            for ds in datasets.values():
-                if isinstance(ds, wds.WebDataset):
-                    return ds
-        
-        return merge_dataset(list(datasets.values()), data_args, seed=training_args.seed)
-    else:
+
+    if return_dict:
         return datasets
+    else:
+        return merge_dataset(list(datasets.values()), data_args, seed=training_args.seed)
 
 
 def _get_dataset_processor(
@@ -565,9 +518,7 @@ def _get_dataset_processor(
     processor: Optional["ProcessorMixin"],
     do_generate: bool = False,
 ) -> "DatasetProcessor":
-    r"""
-    Returns the corresponding dataset processor.
-    """
+    r"""Return the corresponding dataset processor."""
     if stage == "pt":
         dataset_processor_class = PretrainDatasetProcessor
     elif stage == "sft" and not do_generate:
@@ -609,72 +560,10 @@ def _get_preprocessed_dataset(
     processor: Optional["ProcessorMixin"] = None,
     is_eval: bool = False,
 ) -> Optional[Union["Dataset", "IterableDataset"]]:
-    r"""
-    Preprocesses the dataset, including format checking and tokenization.
-    """
+    r"""Preprocesses the dataset, including format checking and tokenization."""
     if dataset is None:
         return None
-        
-    # Check if we have a WebDatasetAdapter
-    if isinstance(dataset, WebDatasetAdapter):
-        logger.info_rank0("Processing WebDatasetAdapter with native WebDataset pipeline")
-        
-        # Get the dataset processor
-        dataset_processor = _get_dataset_processor(
-            data_args, stage, template, tokenizer, processor, do_generate=(training_args.predict_with_generate and is_eval)
-        )
-        
-        # Apply operations in the correct order:
-        # 1. Ensure the dataset is decoded - wids skips this
-        # if hasattr(dataset, 'is_decoded') and not dataset.is_decoded:
-        #     dataset = dataset.decode()
-        #     logger.info_rank0("Applied decoding to WebDatasetAdapter")
-        
-        # 2. Apply shuffling if needed - this will be handled by the sampler
-        
-        # 3. Batch the samples
-        batch_size = data_args.preprocessing_batch_size or 32
-        batched_dataset = dataset.batched(batch_size)
-        logger.info_rank0(f"Applied batching with batch size: {batch_size}")
-        
-        # 4. Apply the dataset processor to the batched dataset
-        processed_dataset = batched_dataset.map(dataset_processor.preprocess_dataset)
-        logger.info_rank0("Applied dataset processor to batched WebDatasetAdapter")
-        
-        # 5. Set up a custom sampler for distributed training
-        # Store the dataset and sampler information for later use in the trainer
-        if hasattr(processed_dataset, 'set_sampler_builder'):
-            def sampler_builder(dataset):
-                return wids.DistributedChunkedSampler(
-                    dataset, 
-                    chunksize=128,  # Adjust as needed
-                    shuffle=True,
-                    seed=training_args.seed
-                )
-            processed_dataset.set_sampler_builder(sampler_builder)
-            logger.info_rank0("Set up DistributedChunkedSampler for WebDataset")
-        
-        # Print an example if should_log is True
-        if training_args.should_log:
-            try:
-                print("eval example:" if is_eval else "training example:")
-                # Get the first batch
-                first_batch = next(iter(processed_dataset))
-                # Print the first example in the batch
-                dataset_processor.print_data_example({
-                    key: value[0] if isinstance(value, list) and len(value) > 0 else value
-                    for key, value in first_batch.items()
-                })
-            except StopIteration:
-                if stage == "pt":
-                    raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
-                else:
-                    raise RuntimeError("Cannot find valid samples, check `data/README.md` for the data format.")
-        
-        return processed_dataset
-    
-    # For regular datasets, use the original implementation
-    
+
     dataset_processor = _get_dataset_processor(
         data_args, stage, template, tokenizer, processor, do_generate=(training_args.predict_with_generate and is_eval)
     )
@@ -689,76 +578,18 @@ def _get_preprocessed_dataset(
             desc="Running tokenizer on dataset",
         )
 
-    if isinstance(dataset, wids.ShardListDataset):
-        assert len(kwargs) == 0, f"kwargs is not empty for ShardListDataset: {kwargs=}"
-        def transform_removing_columns(example, func, remove_columns=None):
-            """
-            Processes a single example by first removing specified columns before passing it to
-            a mapping function. The function's returned dict is then used to update the example.
-            
-            This mimics the behavior of Hugging Face Datasets' map function when using the
-            remove_columns argument.
-            
-            Args:
-            example: A dictionary representing one data example.
-            func: A function that takes a dictionary and returns a dictionary of updates.
-            remove_columns: A list (or set) of keys to remove from the example before applying func.
-            
-            Returns:
-            A new dictionary representing the processed example.
-            """
-            # Create a copy to avoid modifying the original.
-            new_example = example.copy()
-            
-            # Remove specified columns BEFORE applying the mapping function.
-            if remove_columns:
-                for col in remove_columns:
-                    new_example.pop(col, None)  # remove the key if it exists
-            
-            # Call the mapping function on the pruned example.
-            updates = func(new_example)
-            
-            # If the mapping function returns some updates, update the example.
-            if updates is not None:
-                new_example.update(updates)
-            print(f"After processing: {new_example.keys()=}")
-            return new_example
-        from functools import partial
-        dataset = dataset.add_transform(
-            # TODO: figure out why we need to add brackets here. Is it because our process_sample function doesn't?
-            # The brackets cause some issues later, where they need to be removed
-            # This fails because important columns are actually removed! Not sure why map() works here 
-            # partial(transform_removing_columns, 
-            #     func= lambda x: dataset_processor.preprocess_dataset(
-            #         {k: [v] for k, v in x.items()}
-            #     ),
-            #     remove_columns=column_names
-            # )
-            # Remove a selection of columns while doing the mapping. Columns will be removed before updating the examples with the output of function, i.e. if function is adding columns with names in remove_columns, these columns will be kept.
-            lambda x: dataset_processor.preprocess_dataset(
-                    {k: [v] for k, v in x.items()}
-            )
-        )
-    elif isinstance(dataset, wds.WebDataset):
-        dataset = dataset.map(
-            dataset_processor.preprocess_dataset,
-        )
-    else:
-        # Get column names from the first example
-        column_names = list(next(iter(dataset)).keys())
-        dataset = dataset.map(
-            dataset_processor.preprocess_dataset,
-            batched=True,
-            batch_size=data_args.preprocessing_batch_size,
-            remove_columns=column_names,
-            **kwargs,
-        )
+    dataset = dataset.map(
+        dataset_processor.preprocess_dataset,
+        batched=True,
+        batch_size=data_args.preprocessing_batch_size,
+        remove_columns=column_names,
+        **kwargs,
+    )
 
     if training_args.should_log:
         try:
             print("eval example:" if is_eval else "training example:")
-            if not (isinstance(dataset, wds.WebDataset) and torch.distributed.is_initialized() and torch.distributed.get_world_size() > 1):
-                dataset_processor.print_data_example(next(iter(dataset)))
+            dataset_processor.print_data_example(next(iter(dataset)))
         except StopIteration:
             if stage == "pt":
                 raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
@@ -778,44 +609,35 @@ def get_dataset(
     tokenizer: "PreTrainedTokenizer",
     processor: Optional["ProcessorMixin"] = None,
 ) -> "DatasetModule":
-    r"""
-    Gets the train dataset and optionally gets the evaluation dataset.
-    """
+    r"""Get the train dataset and optionally gets the evaluation dataset."""
     # Load tokenized dataset if path exists
     if data_args.tokenized_path is not None:
         if has_tokenized_data(data_args.tokenized_path):
             logger.warning_rank0("Loading dataset from disk will ignore other data arguments.")
-            tokenized_data: Union["Dataset", "DatasetDict"] = load_from_disk(data_args.tokenized_path)
-            logger.info_rank0(f"Loaded tokenized dataset from {data_args.tokenized_path}.")
-
-            dataset_module: Dict[str, "Dataset"] = {}
-            if isinstance(tokenized_data, DatasetDict):
-                if "train" in tokenized_data:
-                    dataset_module["train_dataset"] = tokenized_data["train"]
-
-                if "validation" in tokenized_data:
-                    dataset_module["eval_dataset"] = tokenized_data["validation"]
-
-            else:  # single dataset
-                dataset_module["train_dataset"] = tokenized_data
-
+            tokenized_data = load_from_disk(data_args.tokenized_path)
+            dataset_module = get_dataset_module(tokenized_data)
             if data_args.streaming:
-                dataset_module = {k: v.to_iterable_dataset() for k, v in dataset_module.items()}
+                dataset_module["train_dataset"] = dataset_module["train_dataset"].to_iterable_dataset()
 
+            logger.info_rank0(f"Loaded tokenized dataset from {data_args.tokenized_path}.")
             return dataset_module
 
         if data_args.streaming:
             raise ValueError("Turn off `streaming` when saving dataset to disk.")
 
     # Load and preprocess dataset
-    with training_args.main_process_first(desc="load dataset"):
-        # this only loads paths, not actual video (or text) tokens
+    with training_args.main_process_first(desc="load dataset", local=(not data_args.data_shared_file_system)):
         dataset = _get_merged_dataset(data_args.dataset, model_args, data_args, training_args, stage)
         eval_dataset = _get_merged_dataset(
-            data_args.eval_dataset, model_args, data_args, training_args, stage, merge=training_args.do_predict
+            data_args.eval_dataset,
+            model_args,
+            data_args,
+            training_args,
+            stage,
+            return_dict=data_args.eval_on_each_dataset,
         )
 
-    with training_args.main_process_first(desc="pre-process dataset"):
+    with training_args.main_process_first(desc="pre-process dataset", local=(not data_args.data_shared_file_system)):
         dataset = _get_preprocessed_dataset(
             dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=False
         )
@@ -829,58 +651,11 @@ def get_dataset(
                 eval_dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=True
             )
 
-        if data_args.val_size > 1e-6:
-            dataset_dict = split_dataset(dataset, data_args, seed=training_args.seed)
-        else:
-            dataset_dict = {}
-            if dataset is not None:
-                if data_args.streaming and not isinstance(dataset, wids.ShardListDataset):
-                    if isinstance(dataset, wds.WebDataset):
-                        # Use WebDataset's shuffle method
-                        dataset = dataset.shuffle(size=data_args.buffer_size, seed=training_args.seed)
-                    else:
-                        # Use HuggingFace's shuffle method
-                        dataset = dataset.shuffle(buffer_size=data_args.buffer_size, seed=training_args.seed)
-
-                dataset_dict["train"] = dataset
-
-            if eval_dataset is not None:
-                if isinstance(eval_dataset, dict):
-                    dataset_dict.update({f"validation_{name}": data for name, data in eval_dataset.items()})
-                else:
-                    if data_args.streaming and not isinstance(eval_dataset, wids.ShardListDataset):
-                        if isinstance(eval_dataset, wds.WebDataset):
-                            # Use WebDataset's shuffle method
-                            eval_dataset = eval_dataset.shuffle(size=data_args.buffer_size, seed=training_args.seed)
-                        else:
-                            # Use HuggingFace's shuffle method
-                            eval_dataset = eval_dataset.shuffle(buffer_size=data_args.buffer_size, seed=training_args.seed)
-
-                    dataset_dict["validation"] = eval_dataset
-
-            dataset_dict = DatasetDict(dataset_dict)
-
-        if data_args.tokenized_path is not None:  # save tokenized dataset to disk and exit
+        dataset_dict = split_dataset(dataset, eval_dataset, data_args, seed=training_args.seed)
+        if data_args.tokenized_path is not None:  # save tokenized dataset to disk
             if training_args.should_save:
                 dataset_dict.save_to_disk(data_args.tokenized_path)
                 logger.info_rank0(f"Tokenized dataset is saved at {data_args.tokenized_path}.")
-                logger.info_rank0(f"Please restart the training with `tokenized_path: {data_args.tokenized_path}`.")
+                logger.info_rank0(f"Please launch the training with `tokenized_path: {data_args.tokenized_path}`.")
 
-            sys.exit(0)
-
-        dataset_module = {}
-        if "train" in dataset_dict:
-            dataset_module["train_dataset"] = dataset_dict["train"]
-
-        if "validation" in dataset_dict:
-            dataset_module["eval_dataset"] = dataset_dict["validation"]
-        else:
-            eval_dataset = {}
-            for key in dataset_dict.keys():
-                if key.startswith("validation_"):
-                    eval_dataset[key[len("validation_") :]] = dataset_dict[key]
-
-            if len(eval_dataset):
-                dataset_module["eval_dataset"] = eval_dataset
-
-        return dataset_module
+        return get_dataset_module(dataset_dict)

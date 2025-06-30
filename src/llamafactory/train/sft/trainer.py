@@ -1,4 +1,4 @@
-# Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/trainer_seq2seq.py
@@ -18,7 +18,7 @@
 import json
 import os
 from types import MethodType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import torch
@@ -46,23 +46,26 @@ logger = logging.get_logger(__name__)
 
 
 class CustomSeq2SeqTrainer(Seq2SeqTrainer):
-    r"""
-    Inherits Seq2SeqTrainer to compute generative metrics such as BLEU and ROUGE.
-    """
+    r"""Inherits Seq2SeqTrainer to compute generative metrics such as BLEU and ROUGE."""
 
     def __init__(
         self,
         finetuning_args: "FinetuningArguments",
         processor: Optional["ProcessorMixin"],
-        gen_kwargs: Optional[Dict[str, Any]] = None,
+        gen_kwargs: Optional[dict[str, Any]] = None,
         **kwargs,
     ) -> None:
         if is_transformers_version_greater_than("4.46"):
             kwargs["processing_class"] = kwargs.pop("tokenizer")
         else:
-            self.processing_class: "PreTrainedTokenizer" = kwargs.get("tokenizer")
+            self.processing_class: PreTrainedTokenizer = kwargs.get("tokenizer")
 
         super().__init__(**kwargs)
+        if processor is not None:
+            # avoid wrong loss under gradient accumulation
+            # https://github.com/huggingface/transformers/pull/36044#issuecomment-2746657112
+            self.model_accepts_loss_kwargs = False
+
         self.finetuning_args = finetuning_args
         if gen_kwargs is not None:
             # https://github.com/huggingface/transformers/blob/v4.45.0/src/transformers/trainer_seq2seq.py#L287
@@ -91,74 +94,26 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         return super().create_scheduler(num_training_steps, optimizer)
 
     @override
-    def _get_train_sampler(self) -> Optional["torch.utils.data.Sampler"]:
-        if isinstance(self.train_dataset, wids.ShardListDataset):
-            # TODO: check chunkise from dasaset shard size e.g. chunksize= min(2000, shard_size) or even configurable
-            sampler = wids.DistributedChunkedSampler(
-                self.train_dataset,
-                chunksize=128,
-                # chunksize=128*200,
-                shuffle=True,
-                seed=self.args.seed
-            )
-            # trainer._get_train_sampler = lambda: sampler
-            return sampler
-
-        elif hasattr(self.finetuning_args, 'disable_shuffling') and self.finetuning_args.disable_shuffling:
+    def _get_train_sampler(self, *args, **kwargs) -> Optional["torch.utils.data.Sampler"]:
+        if self.finetuning_args.disable_shuffling:
             return torch.utils.data.SequentialSampler(self.train_dataset)
 
-        return super()._get_train_sampler()
+        return super()._get_train_sampler(*args, **kwargs)
 
     @override
-    def get_train_dataloader(self) -> "torch.utils.data.DataLoader":
-        if isinstance(self.train_dataset, wds.WebDataset):
-            # based on https://github.com/webdataset/webdataset/issues/324#issuecomment-1951972673
-            train_dataset = self.train_dataset
-            data_collator = self.data_collator
-            dataloader = wds.WebLoader(
-                train_dataset,
-                batch_size=None,
-                shuffle=False,
-                num_workers=self.args.dataloader_num_workers,
-                persistent_workers=self.args.dataloader_num_workers > 0,
-            )
-            print(f"{self.args.dataloader_num_workers=}")
-            dataloader = dataloader.map(self.data_collator)#.unbatched().shuffle(1000).batched(2)
-            # another solution also batches here https://github.com/webdataset/webdataset/issues/250#issuecomment-1449384288
-            return self.accelerator.prepare(dataloader)
-        return super().get_train_dataloader()
-
-    @override
-    def get_eval_dataloader(self) -> "torch.utils.data.DataLoader":
-        if isinstance(self.eval_dataset, wds.WebDataset):
-            # based on https://github.com/webdataset/webdataset/issues/324#issuecomment-1951972673
-            eval_dataset = self.eval_dataset
-            data_collator = self.data_collator
-            dataloader = wds.WebLoader(
-                eval_dataset,
-                batch_size=None,
-                shuffle=False,
-                num_workers=self.args.dataloader_num_workers,
-                persistent_workers=self.args.dataloader_num_workers > 0,
-            )
-            print(f"{self.args.dataloader_num_workers=}")
-            dataloader = dataloader.map(self.data_collator)#.unbatched().shuffle(1000).batched(2)
-            # another solution also batches here https://github.com/webdataset/webdataset/issues/250#issuecomment-1449384288
-            return self.accelerator.prepare(dataloader)
-        return super().get_eval_dataloader()
-
+    def compute_loss(self, model, inputs, *args, **kwargs):
+        return super().compute_loss(model, inputs, *args, **kwargs)
 
     @override
     def prediction_step(
         self,
         model: "torch.nn.Module",
-        inputs: Dict[str, Union["torch.Tensor", Any]],
+        inputs: dict[str, Union["torch.Tensor", Any]],
         prediction_loss_only: bool,
-        ignore_keys: Optional[List[str]] = None,
+        ignore_keys: Optional[list[str]] = None,
         **gen_kwargs,
-    ) -> Tuple[Optional[float], Optional["torch.Tensor"], Optional["torch.Tensor"]]:
-        r"""
-        Removes the prompt part in the generated tokens.
+    ) -> tuple[Optional[float], Optional["torch.Tensor"], Optional["torch.Tensor"]]:
+        r"""Remove the prompt part in the generated tokens.
 
         Subclass and override to inject custom behavior.
         """
@@ -179,8 +134,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
     def save_predictions(
         self, dataset: "Dataset", predict_results: "PredictionOutput", skip_special_tokens: bool = True
     ) -> None:
-        r"""
-        Saves model predictions to `output_dir`.
+        r"""Save model predictions to `output_dir`.
 
         A custom behavior that not contained in Seq2SeqTrainer.
         """
